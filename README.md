@@ -2,3 +2,4 @@
 
 Scaffold for the Music Hunter AI project.
 ## Music Hunter AI
+## Music Hunter AI
