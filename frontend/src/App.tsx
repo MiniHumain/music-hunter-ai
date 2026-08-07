@@ -345,11 +345,11 @@ function App() {
             <label className="secondary-button import-button">
               {importing
                 ? "Import en cours..."
-                : "Importer CSV"}
+                : "Importer CSV / Excel"}
 
               <input
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 onChange={handleCsvImport}
                 disabled={importing}
                 hidden

@@ -16,7 +16,10 @@ from app.schemas.prospect import (
     ProspectUpdate,
 )
 from app.services import prospect_service
-from app.services.import_service import import_prospects_from_csv
+from app.services.import_service import (
+    import_prospects_from_csv,
+    import_prospects_from_xlsx,
+)
 
 
 router = APIRouter(
@@ -47,23 +50,43 @@ async def import_prospects(
             detail="Nom de fichier manquant",
         )
 
-    if not file.filename.lower().endswith(".csv"):
+    filename = file.filename.lower()
+
+    if not (
+        filename.endswith(".csv")
+        or filename.endswith(".xlsx")
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Le fichier doit être au format CSV",
+            detail="Le fichier doit être au format CSV ou XLSX",
         )
 
     content = await file.read()
 
     try:
-        result = import_prospects_from_csv(
-            db,
-            content,
-        )
+        if filename.endswith(".csv"):
+            result = import_prospects_from_csv(
+                db,
+                content,
+            )
+        else:
+            result = import_prospects_from_xlsx(
+                db,
+                content,
+            )
+
     except UnicodeDecodeError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Encodage CSV invalide",
+        ) from exc
+
+    except Exception as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Impossible de lire le fichier : {exc}",
         ) from exc
 
     return result
