@@ -1,9 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Response,
+    UploadFile,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.schemas.prospect import ProspectCreate, ProspectRead, ProspectUpdate
+from app.schemas.prospect import (
+    ProspectCreate,
+    ProspectRead,
+    ProspectUpdate,
+)
 from app.services import prospect_service
+from app.services.import_service import import_prospects_from_csv
+
 
 router = APIRouter(
     prefix="/prospects",
@@ -22,7 +36,37 @@ def create_prospect(
 ) -> ProspectRead:
     return prospect_service.create_prospect(db, data)
 
+@router.post("/import")
+async def import_prospects(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nom de fichier manquant",
+        )
 
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le fichier doit être au format CSV",
+        )
+
+    content = await file.read()
+
+    try:
+        result = import_prospects_from_csv(
+            db,
+            content,
+        )
+    except UnicodeDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Encodage CSV invalide",
+        ) from exc
+
+    return result
 @router.get(
     "",
     response_model=list[ProspectRead],
