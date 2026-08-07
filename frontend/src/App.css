@@ -258,3 +258,24 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 }
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.import-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.import-result {
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  border: 1px solid #d1fadf;
+  border-radius: 10px;
+  background: #ecfdf3;
+  color: #027a48;
+}

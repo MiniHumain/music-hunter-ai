@@ -112,3 +112,33 @@ export async function deleteProspect(id: number): Promise<void> {
     );
   }
 }
+export interface ImportResult {
+  imported: number;
+  duplicates: number;
+  ignored: number;
+}
+
+export async function importProspectsCsv(
+  file: File
+): Promise<ImportResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(
+    `${API_URL}/prospects/import`,
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+
+    throw new Error(
+      `Erreur import CSV : ${response.status} ${errorBody}`
+    );
+  }
+
+  return response.json();
+}

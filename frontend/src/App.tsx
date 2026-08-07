@@ -1,16 +1,23 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 
 import {
   createProspect,
   deleteProspect,
   getProspects,
+  importProspectsCsv,
   updateProspect,
+  type ImportResult,
   type Prospect,
   type ProspectCreate,
 } from "./services/api";
 
 import "./App.css";
-
 
 const initialForm: ProspectCreate = {
   company_name: "",
@@ -25,7 +32,6 @@ const initialForm: ProspectCreate = {
   status: "À contacter",
   score: 0,
 };
-
 
 function App() {
   const [prospects, setProspects] = useState<Prospect[]>([]);
@@ -44,6 +50,9 @@ function App() {
   const [editingId, setEditingId] =
     useState<number | null>(null);
 
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] =
+    useState<ImportResult | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,28 +83,23 @@ function App() {
     };
   }, []);
 
-
   const stats = useMemo(() => {
     return {
       total: prospects.length,
 
       toContact: prospects.filter(
-        (prospect) =>
-          prospect.status === "À contacter"
+        (prospect) => prospect.status === "À contacter"
       ).length,
 
       contacted: prospects.filter(
-        (prospect) =>
-          prospect.status === "Contacté"
+        (prospect) => prospect.status === "Contacté"
       ).length,
 
       clients: prospects.filter(
-        (prospect) =>
-          prospect.status === "Client"
+        (prospect) => prospect.status === "Client"
       ).length,
     };
   }, [prospects]);
-
 
   const filteredProspects = useMemo(() => {
     const query = search.toLowerCase().trim();
@@ -114,17 +118,12 @@ function App() {
       ]
         .filter(Boolean)
         .some((value) =>
-          String(value)
-            .toLowerCase()
-            .includes(query)
+          String(value).toLowerCase().includes(query)
         )
     );
   }, [prospects, search]);
 
-
-  function updateField<
-    K extends keyof ProspectCreate
-  >(
+  function updateField<K extends keyof ProspectCreate>(
     field: K,
     value: ProspectCreate[K]
   ) {
@@ -134,14 +133,12 @@ function App() {
     }));
   }
 
-
   function resetForm() {
     setFormData(initialForm);
     setEditingId(null);
     setFormError(null);
     setShowForm(false);
   }
-
 
   function handleEdit(prospect: Prospect) {
     setEditingId(prospect.id);
@@ -169,10 +166,7 @@ function App() {
     });
   }
 
-
-  async function handleDelete(
-    prospect: Prospect
-  ) {
+  async function handleDelete(prospect: Prospect) {
     const confirmed = window.confirm(
       `Supprimer "${prospect.company_name}" ?`
     );
@@ -188,8 +182,7 @@ function App() {
 
       setProspects((current) =>
         current.filter(
-          (item) =>
-            item.id !== prospect.id
+          (item) => item.id !== prospect.id
         )
       );
 
@@ -205,7 +198,6 @@ function App() {
     }
   }
 
-
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
@@ -218,7 +210,6 @@ function App() {
       setFormError(
         "Le nom de l’entreprise est obligatoire."
       );
-
       return;
     }
 
@@ -232,11 +223,10 @@ function App() {
       };
 
       if (editingId !== null) {
-        const updated =
-          await updateProspect(
-            editingId,
-            cleanData
-          );
+        const updated = await updateProspect(
+          editingId,
+          cleanData
+        );
 
         setProspects((current) =>
           current.map((prospect) =>
@@ -247,9 +237,7 @@ function App() {
         );
       } else {
         const created =
-          await createProspect(
-            cleanData
-          );
+          await createProspect(cleanData);
 
         setProspects((current) => [
           created,
@@ -269,6 +257,40 @@ function App() {
     }
   }
 
+  async function handleCsvImport(
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      setImporting(true);
+      setImportResult(null);
+      setError(null);
+
+      const result =
+        await importProspectsCsv(file);
+
+      setImportResult(result);
+
+      const refreshed =
+        await getProspects();
+
+      setProspects(refreshed);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Impossible d’importer le fichier CSV."
+      );
+    } finally {
+      setImporting(false);
+      event.target.value = "";
+    }
+  }
 
   return (
     <div className="app">
@@ -302,7 +324,6 @@ function App() {
         </nav>
       </aside>
 
-
       <main className="content">
         <header className="topbar">
           <div>
@@ -320,22 +341,55 @@ function App() {
             </p>
           </div>
 
-          <button
-            className="primary-button"
-            onClick={() => {
-              if (showForm) {
-                resetForm();
-              } else {
-                setShowForm(true);
-              }
-            }}
-          >
-            {showForm
-              ? "Fermer"
-              : "+ Ajouter un prospect"}
-          </button>
+          <div className="topbar-actions">
+            <label className="secondary-button import-button">
+              {importing
+                ? "Import en cours..."
+                : "Importer CSV"}
+
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={handleCsvImport}
+                disabled={importing}
+                hidden
+              />
+            </label>
+
+            <button
+              className="primary-button"
+              onClick={() => {
+                if (showForm) {
+                  resetForm();
+                } else {
+                  setShowForm(true);
+                }
+              }}
+            >
+              {showForm
+                ? "Fermer"
+                : "+ Ajouter un prospect"}
+            </button>
+          </div>
         </header>
 
+        {importResult && (
+          <div className="import-result">
+            <strong>Import terminé :</strong>{" "}
+            {importResult.imported} importé
+            {importResult.imported !== 1
+              ? "s"
+              : ""}{" "}
+            · {importResult.duplicates} doublon
+            {importResult.duplicates !== 1
+              ? "s"
+              : ""}{" "}
+            · {importResult.ignored} ignoré
+            {importResult.ignored !== 1
+              ? "s"
+              : ""}
+          </div>
+        )}
 
         {showForm && (
           <section className="panel prospect-form-panel">
@@ -355,7 +409,6 @@ function App() {
               </div>
             </div>
 
-
             <form
               className="prospect-form"
               onSubmit={handleSubmit}
@@ -364,9 +417,7 @@ function App() {
                 Entreprise *
 
                 <input
-                  value={
-                    formData.company_name
-                  }
+                  value={formData.company_name}
                   onChange={(event) =>
                     updateField(
                       "company_name",
@@ -377,14 +428,11 @@ function App() {
                 />
               </label>
 
-
               <label>
                 Pays
 
                 <input
-                  value={
-                    formData.country ?? ""
-                  }
+                  value={formData.country ?? ""}
                   onChange={(event) =>
                     updateField(
                       "country",
@@ -395,14 +443,11 @@ function App() {
                 />
               </label>
 
-
               <label>
                 Ville
 
                 <input
-                  value={
-                    formData.city ?? ""
-                  }
+                  value={formData.city ?? ""}
                   onChange={(event) =>
                     updateField(
                       "city",
@@ -413,14 +458,11 @@ function App() {
                 />
               </label>
 
-
               <label>
                 Secteur
 
                 <input
-                  value={
-                    formData.industry ?? ""
-                  }
+                  value={formData.industry ?? ""}
                   onChange={(event) =>
                     updateField(
                       "industry",
@@ -431,14 +473,11 @@ function App() {
                 />
               </label>
 
-
               <label>
                 Site web
 
                 <input
-                  value={
-                    formData.website ?? ""
-                  }
+                  value={formData.website ?? ""}
                   onChange={(event) =>
                     updateField(
                       "website",
@@ -449,14 +488,11 @@ function App() {
                 />
               </label>
 
-
               <label>
                 LinkedIn
 
                 <input
-                  value={
-                    formData.linkedin ?? ""
-                  }
+                  value={formData.linkedin ?? ""}
                   onChange={(event) =>
                     updateField(
                       "linkedin",
@@ -467,15 +503,12 @@ function App() {
                 />
               </label>
 
-
               <label>
                 Email public
 
                 <input
                   type="email"
-                  value={
-                    formData.public_email ?? ""
-                  }
+                  value={formData.public_email ?? ""}
                   onChange={(event) =>
                     updateField(
                       "public_email",
@@ -486,14 +519,11 @@ function App() {
                 />
               </label>
 
-
               <label>
                 Téléphone public
 
                 <input
-                  value={
-                    formData.public_phone ?? ""
-                  }
+                  value={formData.public_phone ?? ""}
                   onChange={(event) =>
                     updateField(
                       "public_phone",
@@ -504,20 +534,15 @@ function App() {
                 />
               </label>
 
-
               <label>
                 Priorité
 
                 <select
-                  value={
-                    formData.priority ?? 3
-                  }
+                  value={formData.priority ?? 3}
                   onChange={(event) =>
                     updateField(
                       "priority",
-                      Number(
-                        event.target.value
-                      )
+                      Number(event.target.value)
                     )
                   }
                 >
@@ -542,7 +567,6 @@ function App() {
                   </option>
                 </select>
               </label>
-
 
               <label>
                 Statut
@@ -577,7 +601,6 @@ function App() {
                 </select>
               </label>
 
-
               <label>
                 Score
 
@@ -585,27 +608,21 @@ function App() {
                   type="number"
                   min={0}
                   max={100}
-                  value={
-                    formData.score ?? 0
-                  }
+                  value={formData.score ?? 0}
                   onChange={(event) =>
                     updateField(
                       "score",
-                      Number(
-                        event.target.value
-                      )
+                      Number(event.target.value)
                     )
                   }
                 />
               </label>
-
 
               {formError && (
                 <p className="form-error">
                   {formError}
                 </p>
               )}
-
 
               <div className="form-actions">
                 <button
@@ -632,7 +649,6 @@ function App() {
           </section>
         )}
 
-
         <section className="stats-grid">
           <StatCard
             label="Prospects"
@@ -655,17 +671,13 @@ function App() {
           />
         </section>
 
-
         <section className="panel">
           <div className="panel-header">
             <div>
-              <h3>
-                Prospects
-              </h3>
+              <h3>Prospects</h3>
 
               <p>
-                {filteredProspects.length}{" "}
-                résultat
+                {filteredProspects.length} résultat
                 {filteredProspects.length !== 1
                   ? "s"
                   : ""}
@@ -678,13 +690,10 @@ function App() {
               placeholder="Rechercher une entreprise..."
               value={search}
               onChange={(event) =>
-                setSearch(
-                  event.target.value
-                )
+                setSearch(event.target.value)
               }
             />
           </div>
-
 
           {loading && (
             <div className="message">
@@ -692,13 +701,11 @@ function App() {
             </div>
           )}
 
-
           {error && (
             <div className="message error">
               {error}
             </div>
           )}
-
 
           {!loading &&
             !error &&
@@ -708,7 +715,6 @@ function App() {
               </div>
             )}
 
-
           {!loading &&
             !error &&
             filteredProspects.length > 0 && (
@@ -716,36 +722,15 @@ function App() {
                 <table>
                   <thead>
                     <tr>
-                      <th>
-                        Entreprise
-                      </th>
-
-                      <th>
-                        Pays
-                      </th>
-
-                      <th>
-                        Secteur
-                      </th>
-
-                      <th>
-                        Priorité
-                      </th>
-
-                      <th>
-                        Statut
-                      </th>
-
-                      <th>
-                        Score
-                      </th>
-
-                      <th>
-                        Actions
-                      </th>
+                      <th>Entreprise</th>
+                      <th>Pays</th>
+                      <th>Secteur</th>
+                      <th>Priorité</th>
+                      <th>Statut</th>
+                      <th>Score</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
-
 
                   <tbody>
                     {filteredProspects.map(
@@ -753,9 +738,7 @@ function App() {
                         <tr key={prospect.id}>
                           <td>
                             <strong>
-                              {
-                                prospect.company_name
-                              }
+                              {prospect.company_name}
                             </strong>
 
                             <span className="secondary-text">
@@ -764,56 +747,39 @@ function App() {
                             </span>
                           </td>
 
-
                           <td>
-                            {prospect.country ??
-                              "—"}
+                            {prospect.country ?? "—"}
                           </td>
 
-
                           <td>
-                            {prospect.industry ??
-                              "—"}
+                            {prospect.industry ?? "—"}
                           </td>
-
 
                           <td>
                             <span className="priority">
-                              {
-                                prospect.priority
-                              }
-                              /5
+                              {prospect.priority}/5
                             </span>
                           </td>
-
 
                           <td>
                             <span className="status">
-                              {
-                                prospect.status
-                              }
+                              {prospect.status}
                             </span>
                           </td>
 
-
                           <td>
                             <strong>
-                              {
-                                prospect.score
-                              }
+                              {prospect.score}
                             </strong>
                             /100
                           </td>
-
 
                           <td>
                             <div className="actions">
                               <button
                                 className="edit-button"
                                 onClick={() =>
-                                  handleEdit(
-                                    prospect
-                                  )
+                                  handleEdit(prospect)
                                 }
                               >
                                 Modifier
@@ -822,9 +788,7 @@ function App() {
                               <button
                                 className="delete-button"
                                 onClick={() =>
-                                  handleDelete(
-                                    prospect
-                                  )
+                                  handleDelete(prospect)
                                 }
                               >
                                 Supprimer
@@ -844,7 +808,6 @@ function App() {
   );
 }
 
-
 function StatCard({
   label,
   value,
@@ -854,16 +817,10 @@ function StatCard({
 }) {
   return (
     <article className="stat-card">
-      <p>
-        {label}
-      </p>
-
-      <strong>
-        {value}
-      </strong>
+      <p>{label}</p>
+      <strong>{value}</strong>
     </article>
   );
 }
-
 
 export default App;
