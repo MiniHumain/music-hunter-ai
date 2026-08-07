@@ -1,3 +1,5 @@
+import time
+
 import httpx
 
 from app.collectors.base import (
@@ -29,21 +31,62 @@ COUNTRY_IDS = {
 }
 
 
-INDUSTRY_IDS = {
-    "jeux vidéo": "Q941594",
-    "jeux video": "Q941594",
-    "video games": "Q941594",
-    "musique": "Q638",
-    "music": "Q638",
-    "cinéma": "Q190117",
-    "cinema": "Q190117",
-    "audiovisuel": "Q2431196",
-    "publicité": "Q37038",
-    "publicite": "Q37038",
-    "advertising": "Q37038",
-    "marketing": "Q39809",
-    "technologie": "Q11016",
-    "technology": "Q11016",
+INDUSTRIES = {
+    "jeux vidéo": {
+        "id": "Q941594",
+        "label": "Jeux vidéo",
+    },
+    "jeux video": {
+        "id": "Q941594",
+        "label": "Jeux vidéo",
+    },
+    "video games": {
+        "id": "Q941594",
+        "label": "Jeux vidéo",
+    },
+
+    "publicité": {
+        "id": "Q23700481",
+        "label": "Publicité",
+    },
+    "publicite": {
+        "id": "Q23700481",
+        "label": "Publicité",
+    },
+    "advertising": {
+        "id": "Q23700481",
+        "label": "Publicité",
+    },
+
+    "cinéma": {
+        "id": "Q1415395",
+        "label": "Cinéma",
+    },
+    "cinema": {
+        "id": "Q1415395",
+        "label": "Cinéma",
+    },
+    "film": {
+        "id": "Q1415395",
+        "label": "Cinéma",
+    },
+    "film industry": {
+        "id": "Q1415395",
+        "label": "Cinéma",
+    },
+
+    "musique": {
+        "id": "Q746359",
+        "label": "Musique",
+    },
+    "music": {
+        "id": "Q746359",
+        "label": "Musique",
+    },
+    "music industry": {
+        "id": "Q746359",
+        "label": "Musique",
+    },
 }
 
 
@@ -60,27 +103,51 @@ class WikidataCollector(BaseCollector):
         self.industry = industry
         self.limit = max(1, min(limit, 200))
 
-    def collect(self) -> list[CollectedProspect]:
+    def _get_country_id(self) -> str | None:
+        if not self.country:
+            return None
+
+        key = self.country.strip().lower()
+
+        return COUNTRY_IDS.get(key)
+
+    def _get_industry(self) -> dict[str, str] | None:
+        if not self.industry:
+            return None
+
+        key = self.industry.strip().lower()
+
+        return INDUSTRIES.get(key)
+
+    def _build_query(self) -> tuple[str, str | None]:
+        country_id = self._get_country_id()
+        industry = self._get_industry()
+
         country_clause = ""
         industry_clause = ""
+        industry_label = None
 
-        if self.country:
-            country_key = self.country.strip().lower()
-            country_id = COUNTRY_IDS.get(country_key)
+        if self.country and country_id is None:
+            raise ValueError(
+                f"Pays non supporté : {self.country}"
+            )
 
-            if country_id:
-                country_clause = (
-                    f"?company wdt:P17 wd:{country_id} ."
-                )
+        if self.industry and industry is None:
+            raise ValueError(
+                f"Secteur non supporté : {self.industry}"
+            )
 
-        if self.industry:
-            industry_key = self.industry.strip().lower()
-            industry_id = INDUSTRY_IDS.get(industry_key)
+        if country_id:
+            country_clause = (
+                f"?company wdt:P17 wd:{country_id} ."
+            )
 
-            if industry_id:
-                industry_clause = (
-                    f"?company wdt:P452 wd:{industry_id} ."
-                )
+        if industry:
+            industry_clause = (
+                f"?company wdt:P452 wd:{industry['id']} ."
+            )
+
+            industry_label = industry["label"]
 
         query = f"""
         SELECT DISTINCT
@@ -106,6 +173,12 @@ class WikidataCollector(BaseCollector):
         LIMIT {self.limit}
         """
 
+        return query, industry_label
+
+    def _request_wikidata(
+        self,
+        query: str,
+    ) -> dict:
         headers = {
             "User-Agent": (
                 "MusicHunterAIBot/0.1 "
@@ -114,28 +187,55 @@ class WikidataCollector(BaseCollector):
             "Accept": "application/sparql-results+json",
         }
 
-        response = httpx.get(
-            self.ENDPOINT,
-            params={
-                "query": query,
-                "format": "json",
-            },
-            headers=headers,
-            timeout=60.0,
-            follow_redirects=True,
+        retry_statuses = {
+            429,
+            502,
+            503,
+            504,
+        }
+
+        max_attempts = 3
+
+        for attempt in range(1, max_attempts + 1):
+            response = httpx.get(
+                self.ENDPOINT,
+                params={
+                    "query": query,
+                    "format": "json",
+                },
+                headers=headers,
+                timeout=60.0,
+                follow_redirects=True,
+            )
+
+            if response.status_code not in retry_statuses:
+                response.raise_for_status()
+
+                return response.json()
+
+            if attempt == max_attempts:
+                response.raise_for_status()
+
+            wait_seconds = attempt * 2
+
+            time.sleep(wait_seconds)
+
+        raise RuntimeError(
+            "Wikidata n'a pas répondu correctement."
         )
 
-        response.raise_for_status()
+    def collect(self) -> list[CollectedProspect]:
+        query, industry_label = self._build_query()
 
-        data = response.json()
-
-        prospects: list[CollectedProspect] = []
+        data = self._request_wikidata(query)
 
         bindings = (
             data
             .get("results", {})
             .get("bindings", [])
         )
+
+        prospects: list[CollectedProspect] = []
 
         for item in bindings:
             company_name = (
@@ -164,7 +264,7 @@ class WikidataCollector(BaseCollector):
                     company_name=company_name,
                     country=country,
                     website=website,
-                    industry=self.industry,
+                    industry=industry_label,
                     source="wikidata",
                 )
             )
