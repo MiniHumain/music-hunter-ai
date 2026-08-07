@@ -62,3 +62,53 @@ export async function createProspect(
 
   return response.json();
 }
+export interface ProspectUpdate {
+  company_name?: string;
+  country?: string | null;
+  city?: string | null;
+  website?: string | null;
+  linkedin?: string | null;
+  public_email?: string | null;
+  public_phone?: string | null;
+  industry?: string | null;
+  priority?: number;
+  status?: string;
+  score?: number;
+}
+
+export async function updateProspect(
+  id: number,
+  data: ProspectUpdate
+): Promise<Prospect> {
+  const response = await fetch(`${API_URL}/prospects/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+
+    throw new Error(
+      `Erreur modification prospect : ${response.status} ${errorBody}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function deleteProspect(id: number): Promise<void> {
+  const response = await fetch(`${API_URL}/prospects/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+
+    throw new Error(
+      `Erreur suppression prospect : ${response.status} ${errorBody}`
+    );
+  }
+}
