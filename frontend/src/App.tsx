@@ -11,7 +11,9 @@ import {
   deleteProspect,
   getProspects,
   importProspectsCsv,
+  runWikidataCollector,
   updateProspect,
+  type CollectorResult,
   type ImportResult,
   type Prospect,
   type ProspectCreate,
@@ -54,6 +56,21 @@ function App() {
   const [importResult, setImportResult] =
     useState<ImportResult | null>(null);
 
+  const [collectorCountry, setCollectorCountry] =
+    useState("France");
+
+  const [collectorIndustry, setCollectorIndustry] =
+    useState("jeux vidéo");
+
+  const [collectorLimit, setCollectorLimit] =
+    useState(20);
+
+  const [collecting, setCollecting] =
+    useState(false);
+
+  const [collectorResult, setCollectorResult] =
+    useState<CollectorResult | null>(null);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -88,15 +105,18 @@ function App() {
       total: prospects.length,
 
       toContact: prospects.filter(
-        (prospect) => prospect.status === "À contacter"
+        (prospect) =>
+          prospect.status === "À contacter"
       ).length,
 
       contacted: prospects.filter(
-        (prospect) => prospect.status === "Contacté"
+        (prospect) =>
+          prospect.status === "Contacté"
       ).length,
 
       clients: prospects.filter(
-        (prospect) => prospect.status === "Client"
+        (prospect) =>
+          prospect.status === "Client"
       ).length,
     };
   }, [prospects]);
@@ -118,12 +138,16 @@ function App() {
       ]
         .filter(Boolean)
         .some((value) =>
-          String(value).toLowerCase().includes(query)
+          String(value)
+            .toLowerCase()
+            .includes(query)
         )
     );
   }, [prospects, search]);
 
-  function updateField<K extends keyof ProspectCreate>(
+  function updateField<
+    K extends keyof ProspectCreate
+  >(
     field: K,
     value: ProspectCreate[K]
   ) {
@@ -166,7 +190,9 @@ function App() {
     });
   }
 
-  async function handleDelete(prospect: Prospect) {
+  async function handleDelete(
+    prospect: Prospect
+  ) {
     const confirmed = window.confirm(
       `Supprimer "${prospect.company_name}" ?`
     );
@@ -182,7 +208,8 @@ function App() {
 
       setProspects((current) =>
         current.filter(
-          (item) => item.id !== prospect.id
+          (item) =>
+            item.id !== prospect.id
         )
       );
 
@@ -210,6 +237,7 @@ function App() {
       setFormError(
         "Le nom de l’entreprise est obligatoire."
       );
+
       return;
     }
 
@@ -223,10 +251,11 @@ function App() {
       };
 
       if (editingId !== null) {
-        const updated = await updateProspect(
-          editingId,
-          cleanData
-        );
+        const updated =
+          await updateProspect(
+            editingId,
+            cleanData
+          );
 
         setProspects((current) =>
           current.map((prospect) =>
@@ -237,7 +266,9 @@ function App() {
         );
       } else {
         const created =
-          await createProspect(cleanData);
+          await createProspect(
+            cleanData
+          );
 
         setProspects((current) => [
           created,
@@ -257,7 +288,7 @@ function App() {
     }
   }
 
-  async function handleCsvImport(
+  async function handleFileImport(
     event: ChangeEvent<HTMLInputElement>
   ) {
     const file = event.target.files?.[0];
@@ -284,11 +315,41 @@ function App() {
       setError(
         err instanceof Error
           ? err.message
-          : "Impossible d’importer le fichier CSV."
+          : "Impossible d’importer le fichier."
       );
     } finally {
       setImporting(false);
       event.target.value = "";
+    }
+  }
+
+  async function handleCollectorSearch() {
+    try {
+      setCollecting(true);
+      setCollectorResult(null);
+      setError(null);
+
+      const result =
+        await runWikidataCollector({
+          country: collectorCountry,
+          industry: collectorIndustry,
+          limit: collectorLimit,
+        });
+
+      setCollectorResult(result);
+
+      const refreshed =
+        await getProspects();
+
+      setProspects(refreshed);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Impossible de rechercher des prospects."
+      );
+    } finally {
+      setCollecting(false);
     }
   }
 
@@ -350,7 +411,7 @@ function App() {
               <input
                 type="file"
                 accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                onChange={handleCsvImport}
+                onChange={handleFileImport}
                 disabled={importing}
                 hidden
               />
@@ -375,7 +436,9 @@ function App() {
 
         {importResult && (
           <div className="import-result">
-            <strong>Import terminé :</strong>{" "}
+            <strong>
+              Import terminé :
+            </strong>{" "}
             {importResult.imported} importé
             {importResult.imported !== 1
               ? "s"
@@ -390,6 +453,155 @@ function App() {
               : ""}
           </div>
         )}
+
+        <section className="panel collector-panel">
+          <div className="panel-header">
+            <div>
+              <h3>
+                Rechercher des prospects
+              </h3>
+
+              <p>
+                Recherche des entreprises via Wikidata.
+              </p>
+            </div>
+          </div>
+
+          <div className="collector-form">
+            <label>
+              Pays
+
+              <select
+                value={collectorCountry}
+                onChange={(event) =>
+                  setCollectorCountry(
+                    event.target.value
+                  )
+                }
+              >
+                <option value="France">
+                  France
+                </option>
+
+                <option value="Canada">
+                  Canada
+                </option>
+
+                <option value="Royaume-Uni">
+                  Royaume-Uni
+                </option>
+
+                <option value="Allemagne">
+                  Allemagne
+                </option>
+
+                <option value="Espagne">
+                  Espagne
+                </option>
+
+                <option value="Italie">
+                  Italie
+                </option>
+
+                <option value="États-Unis">
+                  États-Unis
+                </option>
+
+                <option value="Belgique">
+                  Belgique
+                </option>
+
+                <option value="Suisse">
+                  Suisse
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Secteur
+
+              <select
+                value={collectorIndustry}
+                onChange={(event) =>
+                  setCollectorIndustry(
+                    event.target.value
+                  )
+                }
+              >
+                <option value="jeux vidéo">
+                  Jeux vidéo
+                </option>
+
+                <option value="publicité">
+                  Publicité
+                </option>
+
+                <option value="cinéma">
+                  Cinéma
+                </option>
+
+                <option value="musique">
+                  Musique
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Nombre de résultats
+
+              <input
+                type="number"
+                min={1}
+                max={200}
+                value={collectorLimit}
+                onChange={(event) =>
+                  setCollectorLimit(
+                    Number(
+                      event.target.value
+                    )
+                  )
+                }
+              />
+            </label>
+
+            <div className="collector-action">
+              <button
+                className="primary-button"
+                type="button"
+                onClick={handleCollectorSearch}
+                disabled={collecting}
+              >
+                {collecting
+                  ? "Recherche en cours..."
+                  : "Rechercher"}
+              </button>
+            </div>
+          </div>
+
+          {collectorResult && (
+            <div className="collector-result">
+              <strong>
+                Recherche terminée :
+              </strong>{" "}
+              {collectorResult.collected} trouvé
+              {collectorResult.collected !== 1
+                ? "s"
+                : ""}{" "}
+              · {collectorResult.imported} nouveau
+              {collectorResult.imported !== 1
+                ? "x"
+                : ""}{" "}
+              · {collectorResult.duplicates} doublon
+              {collectorResult.duplicates !== 1
+                ? "s"
+                : ""}{" "}
+              · {collectorResult.ignored} ignoré
+              {collectorResult.ignored !== 1
+                ? "s"
+                : ""}
+            </div>
+          )}
+        </section>
 
         {showForm && (
           <section className="panel prospect-form-panel">
@@ -417,7 +629,9 @@ function App() {
                 Entreprise *
 
                 <input
-                  value={formData.company_name}
+                  value={
+                    formData.company_name
+                  }
                   onChange={(event) =>
                     updateField(
                       "company_name",
@@ -432,7 +646,9 @@ function App() {
                 Pays
 
                 <input
-                  value={formData.country ?? ""}
+                  value={
+                    formData.country ?? ""
+                  }
                   onChange={(event) =>
                     updateField(
                       "country",
@@ -447,7 +663,9 @@ function App() {
                 Ville
 
                 <input
-                  value={formData.city ?? ""}
+                  value={
+                    formData.city ?? ""
+                  }
                   onChange={(event) =>
                     updateField(
                       "city",
@@ -462,7 +680,9 @@ function App() {
                 Secteur
 
                 <input
-                  value={formData.industry ?? ""}
+                  value={
+                    formData.industry ?? ""
+                  }
                   onChange={(event) =>
                     updateField(
                       "industry",
@@ -477,7 +697,9 @@ function App() {
                 Site web
 
                 <input
-                  value={formData.website ?? ""}
+                  value={
+                    formData.website ?? ""
+                  }
                   onChange={(event) =>
                     updateField(
                       "website",
@@ -492,7 +714,9 @@ function App() {
                 LinkedIn
 
                 <input
-                  value={formData.linkedin ?? ""}
+                  value={
+                    formData.linkedin ?? ""
+                  }
                   onChange={(event) =>
                     updateField(
                       "linkedin",
@@ -508,7 +732,9 @@ function App() {
 
                 <input
                   type="email"
-                  value={formData.public_email ?? ""}
+                  value={
+                    formData.public_email ?? ""
+                  }
                   onChange={(event) =>
                     updateField(
                       "public_email",
@@ -523,7 +749,9 @@ function App() {
                 Téléphone public
 
                 <input
-                  value={formData.public_phone ?? ""}
+                  value={
+                    formData.public_phone ?? ""
+                  }
                   onChange={(event) =>
                     updateField(
                       "public_phone",
@@ -538,11 +766,15 @@ function App() {
                 Priorité
 
                 <select
-                  value={formData.priority ?? 3}
+                  value={
+                    formData.priority ?? 3
+                  }
                   onChange={(event) =>
                     updateField(
                       "priority",
-                      Number(event.target.value)
+                      Number(
+                        event.target.value
+                      )
                     )
                   }
                 >
@@ -608,11 +840,15 @@ function App() {
                   type="number"
                   min={0}
                   max={100}
-                  value={formData.score ?? 0}
+                  value={
+                    formData.score ?? 0
+                  }
                   onChange={(event) =>
                     updateField(
                       "score",
-                      Number(event.target.value)
+                      Number(
+                        event.target.value
+                      )
                     )
                   }
                 />
@@ -674,7 +910,9 @@ function App() {
         <section className="panel">
           <div className="panel-header">
             <div>
-              <h3>Prospects</h3>
+              <h3>
+                Prospects
+              </h3>
 
               <p>
                 {filteredProspects.length} résultat
@@ -690,7 +928,9 @@ function App() {
               placeholder="Rechercher une entreprise..."
               value={search}
               onChange={(event) =>
-                setSearch(event.target.value)
+                setSearch(
+                  event.target.value
+                )
               }
             />
           </div>
@@ -722,13 +962,33 @@ function App() {
                 <table>
                   <thead>
                     <tr>
-                      <th>Entreprise</th>
-                      <th>Pays</th>
-                      <th>Secteur</th>
-                      <th>Priorité</th>
-                      <th>Statut</th>
-                      <th>Score</th>
-                      <th>Actions</th>
+                      <th>
+                        Entreprise
+                      </th>
+
+                      <th>
+                        Pays
+                      </th>
+
+                      <th>
+                        Secteur
+                      </th>
+
+                      <th>
+                        Priorité
+                      </th>
+
+                      <th>
+                        Statut
+                      </th>
+
+                      <th>
+                        Score
+                      </th>
+
+                      <th>
+                        Actions
+                      </th>
                     </tr>
                   </thead>
 
@@ -738,7 +998,9 @@ function App() {
                         <tr key={prospect.id}>
                           <td>
                             <strong>
-                              {prospect.company_name}
+                              {
+                                prospect.company_name
+                              }
                             </strong>
 
                             <span className="secondary-text">
@@ -748,28 +1010,37 @@ function App() {
                           </td>
 
                           <td>
-                            {prospect.country ?? "—"}
+                            {prospect.country ??
+                              "—"}
                           </td>
 
                           <td>
-                            {prospect.industry ?? "—"}
+                            {prospect.industry ??
+                              "—"}
                           </td>
 
                           <td>
                             <span className="priority">
-                              {prospect.priority}/5
+                              {
+                                prospect.priority
+                              }
+                              /5
                             </span>
                           </td>
 
                           <td>
                             <span className="status">
-                              {prospect.status}
+                              {
+                                prospect.status
+                              }
                             </span>
                           </td>
 
                           <td>
                             <strong>
-                              {prospect.score}
+                              {
+                                prospect.score
+                              }
                             </strong>
                             /100
                           </td>
@@ -779,7 +1050,9 @@ function App() {
                               <button
                                 className="edit-button"
                                 onClick={() =>
-                                  handleEdit(prospect)
+                                  handleEdit(
+                                    prospect
+                                  )
                                 }
                               >
                                 Modifier
@@ -788,7 +1061,9 @@ function App() {
                               <button
                                 className="delete-button"
                                 onClick={() =>
-                                  handleDelete(prospect)
+                                  handleDelete(
+                                    prospect
+                                  )
                                 }
                               >
                                 Supprimer
@@ -817,8 +1092,13 @@ function StatCard({
 }) {
   return (
     <article className="stat-card">
-      <p>{label}</p>
-      <strong>{value}</strong>
+      <p>
+        {label}
+      </p>
+
+      <strong>
+        {value}
+      </strong>
     </article>
   );
 }

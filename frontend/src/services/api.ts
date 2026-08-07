@@ -113,6 +113,7 @@ export async function deleteProspect(id: number): Promise<void> {
   }
 }
 export interface ImportResult {
+  collected: number;
   imported: number;
   duplicates: number;
   ignored: number;
@@ -137,6 +138,51 @@ export async function importProspectsCsv(
 
     throw new Error(
       `Erreur import CSV : ${response.status} ${errorBody}`
+    );
+  }
+
+  return response.json();
+}
+export interface CollectorResult {
+  collected: number;
+  imported: number;
+  duplicates: number;
+  ignored: number;
+}
+
+export interface CollectorSearch {
+  country: string;
+  industry: string;
+  limit: number;
+}
+
+export async function runWikidataCollector(
+  search: CollectorSearch
+): Promise<CollectorResult> {
+  const params = new URLSearchParams();
+
+  if (search.country) {
+    params.set("country", search.country);
+  }
+
+  if (search.industry) {
+    params.set("industry", search.industry);
+  }
+
+  params.set("limit", String(search.limit));
+
+  const response = await fetch(
+    `${API_URL}/collectors/wikidata/run?${params.toString()}`,
+    {
+      method: "POST",
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+
+    throw new Error(
+      `Erreur collecte : ${response.status} ${errorBody}`
     );
   }
 
