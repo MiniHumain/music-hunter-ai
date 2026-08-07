@@ -24,9 +24,16 @@ def run_mock_collector(
     )
 @router.post("/wikidata/run")
 def run_wikidata_collector(
+    country: str | None = None,
+    industry: str | None = None,
+    limit: int = 20,
     db: Session = Depends(get_db),
 ) -> dict[str, int]:
-    collector = WikidataCollector()
+    collector = WikidataCollector(
+        country=country,
+        industry=industry,
+        limit=limit,
+    )
 
     return run_collector(
         db,
