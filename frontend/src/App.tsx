@@ -843,6 +843,7 @@ function App() {
               <label>
                 Site web
 
+
                 <input
                   value={
                     formData.website ?? ""
@@ -1232,8 +1233,14 @@ function App() {
                       </th>
 
                       <th>
+                        LinkedIn
+                      </th>
+
+                      <th>
                         Email public
                       </th>
+
+                      
 
                       <th>
                         Contact
@@ -1288,6 +1295,21 @@ function App() {
                             {prospect.website ? (
                               <a
                                 href={prospect.website}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="website-link"
+                              >
+                                Ouvrir
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+
+                          <td>
+                            {prospect.linkedin ? (
+                              <a
+                                href={prospect.linkedin}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="website-link"
