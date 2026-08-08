@@ -1236,6 +1236,10 @@ function App() {
                       </th>
 
                       <th>
+                        Contact
+                      </th>
+
+                      <th>
                         Priorité
                       </th>
 
@@ -1306,6 +1310,20 @@ function App() {
                             ) : (
                               "—"
                             )}
+                          </td>
+
+                          <td>
+                            <span
+                              className={
+                                prospect.public_email
+                                  ? "contact-badge contactable"
+                                  : "contact-badge to-enrich"
+                              }
+                            >
+                              {prospect.public_email
+                                ? "Contactable"
+                                : "À enrichir"}
+                            </span>
                           </td>
 
                           <td>

@@ -325,3 +325,22 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 }
+.contact-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.contact-badge.contactable {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.contact-badge.to-enrich {
+  background: #ffedd5;
+  color: #9a3412;
+}
