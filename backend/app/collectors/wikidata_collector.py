@@ -1,3 +1,4 @@
+import re
 import time
 
 import httpx
@@ -37,6 +38,10 @@ INDUSTRIES = {
         "label": "Jeux vidéo",
     },
     "jeux video": {
+        "id": "Q941594",
+        "label": "Jeux vidéo",
+    },
+    "jeux vidéos": {
         "id": "Q941594",
         "label": "Jeux vidéo",
     },
@@ -90,6 +95,12 @@ INDUSTRIES = {
 }
 
 
+WIKIDATA_ID_PATTERN = re.compile(
+    r"^Q\d+$",
+    re.IGNORECASE,
+)
+
+
 class WikidataCollector(BaseCollector):
     ENDPOINT = "https://query.wikidata.org/sparql"
 
@@ -101,9 +112,14 @@ class WikidataCollector(BaseCollector):
     ) -> None:
         self.country = country
         self.industry = industry
-        self.limit = max(1, min(limit, 200))
+        self.limit = max(
+            1,
+            min(limit, 200),
+        )
 
-    def _get_country_id(self) -> str | None:
+    def _get_country_id(
+        self,
+    ) -> str | None:
         if not self.country:
             return None
 
@@ -111,7 +127,9 @@ class WikidataCollector(BaseCollector):
 
         return COUNTRY_IDS.get(key)
 
-    def _get_industry(self) -> dict[str, str] | None:
+    def _get_industry(
+        self,
+    ) -> dict[str, str] | None:
         if not self.industry:
             return None
 
@@ -119,7 +137,9 @@ class WikidataCollector(BaseCollector):
 
         return INDUSTRIES.get(key)
 
-    def _build_query(self) -> tuple[str, str | None]:
+    def _build_query(
+        self,
+    ) -> tuple[str, str | None]:
         country_id = self._get_country_id()
         industry = self._get_industry()
 
@@ -127,12 +147,18 @@ class WikidataCollector(BaseCollector):
         industry_clause = ""
         industry_label = None
 
-        if self.country and country_id is None:
+        if (
+            self.country
+            and country_id is None
+        ):
             raise ValueError(
                 f"Pays non supporté : {self.country}"
             )
 
-        if self.industry and industry is None:
+        if (
+            self.industry
+            and industry is None
+        ):
             raise ValueError(
                 f"Secteur non supporté : {self.industry}"
             )
@@ -144,7 +170,8 @@ class WikidataCollector(BaseCollector):
 
         if industry:
             industry_clause = (
-                f"?company wdt:P452 wd:{industry['id']} ."
+                "?company "
+                f"wdt:P452 wd:{industry['id']} ."
             )
 
             industry_label = industry["label"]
@@ -155,6 +182,7 @@ class WikidataCollector(BaseCollector):
             ?companyLabel
             ?website
             ?countryLabel
+            ?cityLabel
         WHERE {{
             ?company wdt:P31 wd:Q4830453 ;
                      wdt:P856 ?website .
@@ -166,8 +194,13 @@ class WikidataCollector(BaseCollector):
                 ?company wdt:P17 ?country .
             }}
 
+            OPTIONAL {{
+                ?company wdt:P159 ?city .
+            }}
+
             SERVICE wikibase:label {{
-                bd:serviceParam wikibase:language "fr,en" .
+                bd:serviceParam
+                    wikibase:language "fr,en" .
             }}
         }}
         LIMIT {self.limit}
@@ -182,9 +215,13 @@ class WikidataCollector(BaseCollector):
         headers = {
             "User-Agent": (
                 "MusicHunterAIBot/0.1 "
-                "(https://github.com/MiniHumain/music-hunter-ai)"
+                "(https://github.com/"
+                "MiniHumain/music-hunter-ai)"
             ),
-            "Accept": "application/sparql-results+json",
+            "Accept": (
+                "application/"
+                "sparql-results+json"
+            ),
         }
 
         retry_statuses = {
@@ -196,7 +233,10 @@ class WikidataCollector(BaseCollector):
 
         max_attempts = 3
 
-        for attempt in range(1, max_attempts + 1):
+        for attempt in range(
+            1,
+            max_attempts + 1,
+        ):
             response = httpx.get(
                 self.ENDPOINT,
                 params={
@@ -208,7 +248,10 @@ class WikidataCollector(BaseCollector):
                 follow_redirects=True,
             )
 
-            if response.status_code not in retry_statuses:
+            if (
+                response.status_code
+                not in retry_statuses
+            ):
                 response.raise_for_status()
 
                 return response.json()
@@ -224,10 +267,35 @@ class WikidataCollector(BaseCollector):
             "Wikidata n'a pas répondu correctement."
         )
 
-    def collect(self) -> list[CollectedProspect]:
-        query, industry_label = self._build_query()
+    def _is_valid_company_name(
+        self,
+        company_name: str | None,
+    ) -> bool:
+        if not company_name:
+            return False
 
-        data = self._request_wikidata(query)
+        name = company_name.strip()
+
+        if not name:
+            return False
+
+        if WIKIDATA_ID_PATTERN.fullmatch(
+            name
+        ):
+            return False
+
+        return True
+
+    def collect(
+        self,
+    ) -> list[CollectedProspect]:
+        query, industry_label = (
+            self._build_query()
+        )
+
+        data = self._request_wikidata(
+            query
+        )
 
         bindings = (
             data
@@ -235,7 +303,9 @@ class WikidataCollector(BaseCollector):
             .get("bindings", [])
         )
 
-        prospects: list[CollectedProspect] = []
+        prospects: list[
+            CollectedProspect
+        ] = []
 
         for item in bindings:
             company_name = (
@@ -244,7 +314,9 @@ class WikidataCollector(BaseCollector):
                 .get("value")
             )
 
-            if not company_name:
+            if not self._is_valid_company_name(
+                company_name
+            ):
                 continue
 
             website = (
@@ -259,10 +331,19 @@ class WikidataCollector(BaseCollector):
                 .get("value")
             )
 
+            city = (
+                item
+                .get("cityLabel", {})
+                .get("value")
+            )
+
             prospects.append(
                 CollectedProspect(
-                    company_name=company_name,
+                    company_name=(
+                        company_name.strip()
+                    ),
                     country=country,
+                    city=city,
                     website=website,
                     industry=industry_label,
                     source="wikidata",
