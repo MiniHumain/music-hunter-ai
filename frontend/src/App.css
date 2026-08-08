@@ -344,3 +344,68 @@ tbody tr:hover {
   background: #ffedd5;
   color: #9a3412;
 }
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  max-width: none;
+}
+
+.app {
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+}
+
+.content {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  padding: 32px;
+  overflow: visible;
+}
+
+.panel {
+  width: 100%;
+  max-width: none;
+}
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  min-width: 1100px;
+}
+
+.filters-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.app {
+  grid-template-columns: 200px minmax(0, 1fr);
+}
+
+.sidebar {
+  padding: 28px 16px;
+}
+
+.content {
+  padding: 24px;
+}
+
+th,
+td {
+  padding: 14px 14px;
+}
+
+table {
+  min-width: 1000px;
+}
