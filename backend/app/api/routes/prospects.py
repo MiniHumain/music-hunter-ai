@@ -9,6 +9,7 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
+from app.collectors.base import CollectedProspect
 from app.db.database import get_db
 from app.schemas.prospect import (
     ProspectCreate,
@@ -19,6 +20,13 @@ from app.services import prospect_service
 from app.services.import_service import (
     import_prospects_from_csv,
     import_prospects_from_xlsx,
+)
+from app.services.prospect_enrichment import (
+    find_best_public_email,
+)
+from app.services.prospect_scoring import (
+    calculate_priority,
+    calculate_prospect_score,
 )
 
 
@@ -37,7 +45,11 @@ def create_prospect(
     data: ProspectCreate,
     db: Session = Depends(get_db),
 ) -> ProspectRead:
-    return prospect_service.create_prospect(db, data)
+    return prospect_service.create_prospect(
+        db,
+        data,
+    )
+
 
 @router.post("/import")
 async def import_prospects(
@@ -90,6 +102,8 @@ async def import_prospects(
         ) from exc
 
     return result
+
+
 @router.get(
     "",
     response_model=list[ProspectRead],
@@ -106,6 +120,145 @@ def list_prospects(
     )
 
 
+@router.post(
+    "/{prospect_id}/enrich",
+    response_model=ProspectRead,
+)
+def enrich_prospect(
+    prospect_id: int,
+    db: Session = Depends(get_db),
+) -> ProspectRead:
+    prospect = prospect_service.get_prospect_by_id(
+        db,
+        prospect_id,
+    )
+
+    if prospect is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prospect introuvable",
+        )
+
+    if not prospect.website:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le prospect ne possède pas de site web",
+        )
+
+    try:
+        public_email = find_best_public_email(
+            prospect.website
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "Impossible d'analyser le site du prospect : "
+                f"{exc}"
+            ),
+        ) from exc
+
+    if public_email:
+        prospect.public_email = public_email
+
+    collected = CollectedProspect(
+        company_name=prospect.company_name,
+        country=prospect.country,
+        city=prospect.city,
+        website=prospect.website,
+        linkedin=prospect.linkedin,
+        public_email=prospect.public_email,
+        public_phone=prospect.public_phone,
+        industry=prospect.industry,
+        source="enrichment",
+    )
+
+    new_score = calculate_prospect_score(
+        collected
+    )
+
+    prospect.score = new_score
+    prospect.priority = calculate_priority(
+        new_score
+    )
+
+    db.add(prospect)
+    db.commit()
+    db.refresh(prospect)
+
+    return prospect
+
+@router.post("/enrich/batch")
+def enrich_prospects_batch(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    limit = max(1, min(limit, 50))
+
+    prospects = prospect_service.get_prospects(
+        db,
+        skip=0,
+        limit=500,
+    )
+
+    candidates = [
+        prospect
+        for prospect in prospects
+        if prospect.website
+        and not prospect.public_email
+    ][:limit]
+
+    enriched = 0
+    unchanged = 0
+    errors = 0
+
+    for prospect in candidates:
+        try:
+            public_email = find_best_public_email(
+                prospect.website
+            )
+
+            if not public_email:
+                unchanged += 1
+                continue
+
+            prospect.public_email = public_email
+
+            collected = CollectedProspect(
+                company_name=prospect.company_name,
+                country=prospect.country,
+                city=prospect.city,
+                website=prospect.website,
+                linkedin=prospect.linkedin,
+                public_email=prospect.public_email,
+                public_phone=prospect.public_phone,
+                industry=prospect.industry,
+                source="enrichment",
+            )
+
+            score = calculate_prospect_score(
+                collected
+            )
+
+            prospect.score = score
+            prospect.priority = calculate_priority(
+                score
+            )
+
+            db.add(prospect)
+            enriched += 1
+
+        except Exception:
+            errors += 1
+
+    db.commit()
+
+    return {
+        "analyzed": len(candidates),
+        "enriched": enriched,
+        "unchanged": unchanged,
+        "errors": errors,
+    }
 @router.get(
     "/{prospect_id}",
     response_model=ProspectRead,
@@ -174,6 +327,11 @@ def delete_prospect(
             detail="Prospect introuvable",
         )
 
-    prospect_service.delete_prospect(db, prospect)
+    prospect_service.delete_prospect(
+        db,
+        prospect,
+    )
 
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT
+    )
