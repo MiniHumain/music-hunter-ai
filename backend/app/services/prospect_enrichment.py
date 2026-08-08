@@ -549,3 +549,118 @@ def find_best_public_email(
         found_emails,
         key=email_priority,
     )[0]
+def find_company_linkedin(
+    website: str,
+) -> str | None:
+    base_url = normalize_website(
+        website
+    )
+
+    headers = {
+        "User-Agent": (
+            "MusicHunterAIBot/0.1 "
+            "(https://github.com/"
+            "MiniHumain/music-hunter-ai)"
+        ),
+        "Accept": (
+            "text/html,"
+            "application/xhtml+xml"
+        ),
+    }
+
+    with httpx.Client(
+        headers=headers,
+        timeout=10.0,
+        follow_redirects=True,
+    ) as client:
+        try:
+            response = client.get(
+                base_url
+            )
+        except httpx.HTTPError:
+            return None
+
+        if response.status_code >= 400:
+            return None
+
+        content_type = (
+            response
+            .headers
+            .get(
+                "content-type",
+                "",
+            )
+            .lower()
+        )
+
+        if (
+            "text/html"
+            not in content_type
+            and
+            "application/xhtml+xml"
+            not in content_type
+        ):
+            return None
+
+        parser = LinkExtractor()
+
+        try:
+            parser.feed(
+                response.text
+            )
+        except Exception:
+            return None
+
+        linkedin_links: list[str] = []
+
+        for href, _text in parser.links:
+            if not href:
+                continue
+
+            absolute_url = urljoin(
+                str(response.url),
+                href,
+            )
+
+            parsed = urlparse(
+                absolute_url
+            )
+
+            domain = parsed.netloc.lower()
+
+            if domain.startswith("www."):
+                domain = domain[4:]
+
+            if domain not in {
+                "linkedin.com",
+                "fr.linkedin.com",
+                "ca.linkedin.com",
+                "uk.linkedin.com",
+            }:
+                continue
+
+            path = parsed.path.lower()
+
+            if (
+                "/company/" not in path
+                and
+                "/showcase/" not in path
+            ):
+                continue
+
+            clean_url = (
+                f"{parsed.scheme}://"
+                f"{parsed.netloc}"
+                f"{parsed.path}"
+            ).rstrip("/")
+
+            if clean_url not in linkedin_links:
+                linkedin_links.append(
+                    clean_url
+                )
+
+        if not linkedin_links:
+            return None
+
+        return linkedin_links[0]
+    

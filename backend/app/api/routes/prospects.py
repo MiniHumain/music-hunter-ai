@@ -23,6 +23,7 @@ from app.services.import_service import (
 )
 from app.services.prospect_enrichment import (
     find_best_public_email,
+    find_company_linkedin,
 )
 from app.services.prospect_scoring import (
     calculate_priority,
@@ -98,7 +99,10 @@ async def import_prospects(
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Impossible de lire le fichier : {exc}",
+            detail=(
+                "Impossible de lire le fichier : "
+                f"{exc}"
+            ),
         ) from exc
 
     return result
@@ -142,24 +146,36 @@ def enrich_prospect(
     if not prospect.website:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Le prospect ne possède pas de site web",
+            detail=(
+                "Le prospect ne possède pas de site web"
+            ),
         )
 
     try:
-        public_email = find_best_public_email(
-            prospect.website
-        )
+        if not prospect.public_email:
+            public_email = find_best_public_email(
+                prospect.website
+            )
+
+            if public_email:
+                prospect.public_email = public_email
+
+        if not prospect.linkedin:
+            linkedin = find_company_linkedin(
+                prospect.website
+            )
+
+            if linkedin:
+                prospect.linkedin = linkedin
+
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=(
-                "Impossible d'analyser le site du prospect : "
-                f"{exc}"
+                "Impossible d'analyser le site "
+                f"du prospect : {exc}"
             ),
         ) from exc
-
-    if public_email:
-        prospect.public_email = public_email
 
     collected = CollectedProspect(
         company_name=prospect.company_name,
@@ -178,6 +194,7 @@ def enrich_prospect(
     )
 
     prospect.score = new_score
+
     prospect.priority = calculate_priority(
         new_score
     )
@@ -188,12 +205,16 @@ def enrich_prospect(
 
     return prospect
 
+
 @router.post("/enrich/batch")
 def enrich_prospects_batch(
     limit: int = 10,
     db: Session = Depends(get_db),
 ) -> dict[str, int]:
-    limit = max(1, min(limit, 50))
+    limit = max(
+        1,
+        min(limit, 50),
+    )
 
     prospects = prospect_service.get_prospects(
         db,
@@ -204,8 +225,13 @@ def enrich_prospects_batch(
     candidates = [
         prospect
         for prospect in prospects
-        if prospect.website
-        and not prospect.public_email
+        if (
+            prospect.website
+            and (
+                not prospect.public_email
+                or not prospect.linkedin
+            )
+        )
     ][:limit]
 
     enriched = 0
@@ -214,15 +240,33 @@ def enrich_prospects_batch(
 
     for prospect in candidates:
         try:
-            public_email = find_best_public_email(
-                prospect.website
-            )
+            changed = False
 
-            if not public_email:
+            if not prospect.public_email:
+                public_email = (
+                    find_best_public_email(
+                        prospect.website
+                    )
+                )
+
+                if public_email:
+                    prospect.public_email = (
+                        public_email
+                    )
+                    changed = True
+
+            if not prospect.linkedin:
+                linkedin = find_company_linkedin(
+                    prospect.website
+                )
+
+                if linkedin:
+                    prospect.linkedin = linkedin
+                    changed = True
+
+            if not changed:
                 unchanged += 1
                 continue
-
-            prospect.public_email = public_email
 
             collected = CollectedProspect(
                 company_name=prospect.company_name,
@@ -241,11 +285,15 @@ def enrich_prospects_batch(
             )
 
             prospect.score = score
-            prospect.priority = calculate_priority(
-                score
+
+            prospect.priority = (
+                calculate_priority(
+                    score
+                )
             )
 
             db.add(prospect)
+
             enriched += 1
 
         except Exception:
@@ -259,6 +307,8 @@ def enrich_prospects_batch(
         "unchanged": unchanged,
         "errors": errors,
     }
+
+
 @router.get(
     "/{prospect_id}",
     response_model=ProspectRead,
