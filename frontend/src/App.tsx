@@ -1209,6 +1209,14 @@ function App() {
                       </th>
 
                       <th>
+                        Site web
+                      </th>
+
+                      <th>
+                        Email public
+                      </th>
+
+                      <th>
                         Priorité
                       </th>
 
@@ -1251,6 +1259,34 @@ function App() {
                           <td>
                             {prospect.industry ??
                               "—"}
+                          </td>
+
+                          <td>
+                            {prospect.website ? (
+                              <a
+                                href={prospect.website}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="website-link"
+                              >
+                                Ouvrir
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+
+                          <td>
+                            {prospect.public_email ? (
+                              <a
+                                href={`mailto:${prospect.public_email}`}
+                                className="email-link"
+                              >
+                                {prospect.public_email}
+                              </a>
+                            ) : (
+                              "—"
+                            )}
                           </td>
 
                           <td>
