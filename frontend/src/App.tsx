@@ -45,6 +45,7 @@ function App() {
   const [filterCountry, setFilterCountry] = useState("");
   const [filterIndustry, setFilterIndustry] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [filterEmail, setFilterEmail] = useState<"all" | "with">("all");
   const [minimumScore, setMinimumScore] = useState(0);
   const [sortBy, setSortBy] = useState<"score" | "priority" | "name">("score");
   const [enrichmentLimit, setEnrichmentLimit] = useState(10);
@@ -178,6 +179,8 @@ function App() {
         !filterIndustry || prospect.industry === filterIndustry;
       const matchesStatus =
         !filterStatus || prospect.status === filterStatus;
+      const matchesEmail =
+        filterEmail === "all" || Boolean(prospect.public_email?.trim());
       const matchesScore = prospect.score >= minimumScore;
 
       return (
@@ -185,6 +188,7 @@ function App() {
         matchesCountry &&
         matchesIndustry &&
         matchesStatus &&
+        matchesEmail &&
         matchesScore
       );
     });
@@ -200,6 +204,7 @@ function App() {
     filterCountry,
     filterIndustry,
     filterStatus,
+    filterEmail,
     minimumScore,
     sortBy,
   ]);
@@ -1123,6 +1128,19 @@ function App() {
             </label>
 
             <label>
+              Email
+              <select
+                value={filterEmail}
+                onChange={(event) =>
+                  setFilterEmail(event.target.value as "all" | "with")
+                }
+              >
+                <option value="all">Tous</option>
+                <option value="with">Avec email</option>
+              </select>
+            </label>
+
+            <label>
               Score minimum
               <input
                 type="number"
@@ -1160,6 +1178,7 @@ function App() {
                   setFilterCountry("");
                   setFilterIndustry("");
                   setFilterStatus("");
+                  setFilterEmail("all");
                   setMinimumScore(0);
                   setSortBy("score");
                 }}
