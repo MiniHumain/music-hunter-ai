@@ -42,6 +42,11 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [filterCountry, setFilterCountry] = useState("");
+  const [filterIndustry, setFilterIndustry] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [minimumScore, setMinimumScore] = useState(0);
+  const [sortBy, setSortBy] = useState<"score" | "priority" | "name">("score");
   const [enrichmentLimit, setEnrichmentLimit] = useState(10);
 
   const [enriching, setEnriching] = useState(false);
@@ -129,29 +134,75 @@ function App() {
     };
   }, [prospects]);
 
+  const availableCountries = useMemo(() => {
+    return Array.from(
+      new Set(
+        prospects
+          .map((prospect) => prospect.country)
+          .filter((country): country is string => Boolean(country))
+      )
+    ).sort((a, b) => a.localeCompare(b));
+  }, [prospects]);
+
+  const availableIndustries = useMemo(() => {
+    return Array.from(
+      new Set(
+        prospects
+          .map((prospect) => prospect.industry)
+          .filter((industry): industry is string => Boolean(industry))
+      )
+    ).sort((a, b) => a.localeCompare(b));
+  }, [prospects]);
+
   const filteredProspects = useMemo(() => {
     const query = search.toLowerCase().trim();
 
-    if (!query) {
-      return prospects;
-    }
+    const filtered = prospects.filter((prospect) => {
+      const matchesSearch =
+        !query ||
+        [
+          prospect.company_name,
+          prospect.country,
+          prospect.city,
+          prospect.industry,
+          prospect.status,
+        ]
+          .filter(Boolean)
+          .some((value) =>
+            String(value).toLowerCase().includes(query)
+          );
 
-    return prospects.filter((prospect) =>
-      [
-        prospect.company_name,
-        prospect.country,
-        prospect.city,
-        prospect.industry,
-        prospect.status,
-      ]
-        .filter(Boolean)
-        .some((value) =>
-          String(value)
-            .toLowerCase()
-            .includes(query)
-        )
-    );
-  }, [prospects, search]);
+      const matchesCountry =
+        !filterCountry || prospect.country === filterCountry;
+      const matchesIndustry =
+        !filterIndustry || prospect.industry === filterIndustry;
+      const matchesStatus =
+        !filterStatus || prospect.status === filterStatus;
+      const matchesScore = prospect.score >= minimumScore;
+
+      return (
+        matchesSearch &&
+        matchesCountry &&
+        matchesIndustry &&
+        matchesStatus &&
+        matchesScore
+      );
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "score") return b.score - a.score;
+      if (sortBy === "priority") return b.priority - a.priority;
+      return a.company_name.localeCompare(b.company_name);
+    });
+  }, [
+    prospects,
+    search,
+    filterCountry,
+    filterIndustry,
+    filterStatus,
+    minimumScore,
+    sortBy,
+  ]);
 
   function updateField<
     K extends keyof ProspectCreate
@@ -1024,6 +1075,98 @@ function App() {
                 )
               }
             />
+          </div>
+
+          <div className="filters-grid">
+            <label>
+              Pays
+              <select
+                value={filterCountry}
+                onChange={(event) => setFilterCountry(event.target.value)}
+              >
+                <option value="">Tous</option>
+                {availableCountries.map((country) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Secteur
+              <select
+                value={filterIndustry}
+                onChange={(event) => setFilterIndustry(event.target.value)}
+              >
+                <option value="">Tous</option>
+                {availableIndustries.map((industry) => (
+                  <option key={industry} value={industry}>
+                    {industry}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Statut
+              <select
+                value={filterStatus}
+                onChange={(event) => setFilterStatus(event.target.value)}
+              >
+                <option value="">Tous</option>
+                <option value="À contacter">À contacter</option>
+                <option value="Contacté">Contacté</option>
+                <option value="Répondu">Répondu</option>
+                <option value="Client">Client</option>
+              </select>
+            </label>
+
+            <label>
+              Score minimum
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={minimumScore}
+                onChange={(event) =>
+                  setMinimumScore(Number(event.target.value))
+                }
+              />
+            </label>
+
+            <label>
+              Trier par
+              <select
+                value={sortBy}
+                onChange={(event) =>
+                  setSortBy(
+                    event.target.value as "score" | "priority" | "name"
+                  )
+                }
+              >
+                <option value="score">Score</option>
+                <option value="priority">Priorité</option>
+                <option value="name">Nom</option>
+              </select>
+            </label>
+
+            <div className="filter-reset">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  setSearch("");
+                  setFilterCountry("");
+                  setFilterIndustry("");
+                  setFilterStatus("");
+                  setMinimumScore(0);
+                  setSortBy("score");
+                }}
+              >
+                Réinitialiser
+              </button>
+            </div>
           </div>
 
           {loading && (
