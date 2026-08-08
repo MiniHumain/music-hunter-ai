@@ -186,5 +186,37 @@ export async function runWikidataCollector(
     );
   }
 
+
+  return response.json();
+}
+export interface BatchEnrichmentResult {
+  analyzed: number;
+  enriched: number;
+  unchanged: number;
+  errors: number;
+}
+
+export async function enrichProspectsBatch(
+  limit: number
+): Promise<BatchEnrichmentResult> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+  });
+
+  const response = await fetch(
+    `${API_URL}/prospects/enrich/batch?${params.toString()}`,
+    {
+      method: "POST",
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+
+    throw new Error(
+      `Erreur enrichissement : ${response.status} ${errorBody}`
+    );
+  }
+
   return response.json();
 }

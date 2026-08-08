@@ -9,10 +9,12 @@ import {
 import {
   createProspect,
   deleteProspect,
+  enrichProspectsBatch,
   getProspects,
   importProspectsCsv,
   runWikidataCollector,
   updateProspect,
+  type BatchEnrichmentResult,
   type CollectorResult,
   type ImportResult,
   type Prospect,
@@ -40,6 +42,12 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [enrichmentLimit, setEnrichmentLimit] = useState(10);
+
+  const [enriching, setEnriching] = useState(false);
+
+  const [enrichmentResult, setEnrichmentResult] =
+  useState<BatchEnrichmentResult | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] =
@@ -353,6 +361,30 @@ function App() {
     }
   }
 
+  async function handleBatchEnrichment() {
+  try {
+    setEnriching(true);
+    setEnrichmentResult(null);
+    setError(null);
+
+    const result = await enrichProspectsBatch(
+      enrichmentLimit
+    );
+
+    setEnrichmentResult(result);
+
+    const refreshed = await getProspects();
+    setProspects(refreshed);
+  } catch (err) {
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Impossible d’enrichir les prospects."
+    );
+  } finally {
+    setEnriching(false);
+  }
+}
   return (
     <div className="app">
       <aside className="sidebar">
@@ -602,6 +634,65 @@ function App() {
             </div>
           )}
         </section>
+        <section className="panel enrichment-panel">
+  <div className="panel-header">
+    <div>
+      <h3>Enrichir les prospects</h3>
+
+      <p>
+        Recherche des emails professionnels publics
+        sur les sites des prospects.
+      </p>
+    </div>
+  </div>
+
+  <div className="collector-form">
+    <label>
+      Nombre de prospects
+
+      <input
+        type="number"
+        min={1}
+        max={50}
+        value={enrichmentLimit}
+        onChange={(event) =>
+          setEnrichmentLimit(
+            Number(event.target.value)
+          )
+        }
+      />
+    </label>
+
+    <div className="collector-action">
+      <button
+        className="primary-button"
+        type="button"
+        onClick={handleBatchEnrichment}
+        disabled={enriching}
+      >
+        {enriching
+          ? "Enrichissement en cours..."
+          : "Enrichir les prospects"}
+      </button>
+    </div>
+  </div>
+
+  {enrichmentResult && (
+    <div className="collector-result">
+      <strong>
+        Enrichissement terminé :
+      </strong>{" "}
+      {enrichmentResult.analyzed} analysé
+      {enrichmentResult.analyzed !== 1 ? "s" : ""} ·{" "}
+      {enrichmentResult.enriched} enrichi
+      {enrichmentResult.enriched !== 1 ? "s" : ""} ·{" "}
+      {enrichmentResult.unchanged} inchangé
+      {enrichmentResult.unchanged !== 1 ? "s" : ""} ·{" "}
+      {enrichmentResult.errors} erreur
+      {enrichmentResult.errors !== 1 ? "s" : ""}
+    </div>
+  )}
+</section>
 
         {showForm && (
           <section className="panel prospect-form-panel">
