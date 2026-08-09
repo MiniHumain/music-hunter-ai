@@ -1,3 +1,8 @@
+from app.collectors.base import CollectedProspect
+from app.services.prospect_scoring import (
+    calculate_priority,
+    calculate_prospect_score,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -60,3 +65,52 @@ def delete_prospect(
 ) -> None:
     db.delete(prospect)
     db.commit()
+
+
+def recalculate_all_scores(
+    db: Session,
+) -> dict[str, int]:
+    prospects = list(
+        db.scalars(
+            select(Prospect)
+        ).all()
+    )
+
+    updated = 0
+
+    for prospect in prospects:
+        collected = CollectedProspect(
+            company_name=prospect.company_name,
+            country=prospect.country,
+            city=prospect.city,
+            website=prospect.website,
+            linkedin=prospect.linkedin,
+            public_email=prospect.public_email,
+            public_phone=prospect.public_phone,
+            industry=prospect.industry,
+            source="score_recalculation",
+        )
+
+        score = calculate_prospect_score(
+            collected
+        )
+
+        priority = calculate_priority(
+            score
+        )
+
+        if (
+            prospect.score != score
+            or prospect.priority != priority
+        ):
+            prospect.score = score
+            prospect.priority = priority
+            db.add(prospect)
+            updated += 1
+
+    db.commit()
+
+    return {
+        "analyzed": len(prospects),
+        "updated": updated,
+    }

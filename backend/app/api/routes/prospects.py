@@ -122,6 +122,13 @@ def list_prospects(
         skip=skip,
         limit=limit,
     )
+@router.post("/recalculate-scores")
+def recalculate_scores(
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    return prospect_service.recalculate_all_scores(
+        db
+    )
 
 
 @router.post(
