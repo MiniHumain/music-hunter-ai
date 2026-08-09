@@ -220,3 +220,27 @@ export async function enrichProspectsBatch(
 
   return response.json();
 }
+export interface ScoreRecalculationResult {
+  analyzed: number;
+  updated: number;
+}
+
+export async function recalculateProspectScores():
+  Promise<ScoreRecalculationResult> {
+  const response = await fetch(
+    `${API_URL}/prospects/recalculate-scores`,
+    {
+      method: "POST",
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+
+    throw new Error(
+      `Erreur recalcul des scores : ${response.status} ${errorBody}`
+    );
+  }
+
+  return response.json();
+}

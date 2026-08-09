@@ -12,9 +12,11 @@ import {
   enrichProspectsBatch,
   getProspects,
   importProspectsCsv,
+  recalculateProspectScores,
   runWikidataCollector,
   updateProspect,
   type BatchEnrichmentResult,
+  type ScoreRecalculationResult,
   type CollectorResult,
   type ImportResult,
   type Prospect,
@@ -54,6 +56,12 @@ function App() {
 
   const [enrichmentResult, setEnrichmentResult] =
   useState<BatchEnrichmentResult | null>(null);
+
+  const [recalculatingScores, setRecalculatingScores] =
+    useState(false);
+
+  const [scoreRecalculationResult, setScoreRecalculationResult] =
+    useState<ScoreRecalculationResult | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] =
@@ -441,6 +449,30 @@ function App() {
     setEnriching(false);
   }
 }
+
+  async function handleScoreRecalculation() {
+    try {
+      setRecalculatingScores(true);
+      setScoreRecalculationResult(null);
+      setError(null);
+
+      const result =
+        await recalculateProspectScores();
+
+      setScoreRecalculationResult(result);
+
+      const refreshed = await getProspects();
+      setProspects(refreshed);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Impossible de recalculer les scores."
+      );
+    } finally {
+      setRecalculatingScores(false);
+    }
+  }
   return (
     <div className="app">
       <aside className="sidebar">
@@ -749,6 +781,40 @@ function App() {
     </div>
   )}
 </section>
+
+        <section className="panel score-recalculation-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Recalculer les scores</h3>
+
+              <p>
+                Applique la grille de scoring actuelle à tous les prospects.
+              </p>
+            </div>
+
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={handleScoreRecalculation}
+              disabled={recalculatingScores}
+            >
+              {recalculatingScores
+                ? "Recalcul en cours..."
+                : "Recalculer les scores"}
+            </button>
+          </div>
+
+          {scoreRecalculationResult && (
+            <div className="collector-result">
+              <strong>
+                Recalcul terminé :
+              </strong>{" "}
+              {scoreRecalculationResult.analyzed} analysé
+              {scoreRecalculationResult.analyzed !== 1 ? "s" : ""} ·{" "}
+              {scoreRecalculationResult.updated} mis à jour
+            </div>
+          )}
+        </section>
 
         {showForm && (
           <section className="panel prospect-form-panel">
