@@ -36,19 +36,19 @@ COUNTRY_IDS = {
 INDUSTRIES = {
     "jeux vidéo": {
         "id": "Q941594",
-        "label": "Jeux vidéo",
+        "label": "Jeu vidéo",
     },
     "jeux video": {
         "id": "Q941594",
-        "label": "Jeux vidéo",
+        "label": "Jeu vidéo",
     },
     "jeux vidéos": {
         "id": "Q941594",
-        "label": "Jeux vidéo",
+        "label": "Jeu vidéo",
     },
     "video games": {
         "id": "Q941594",
-        "label": "Jeux vidéo",
+        "label": "Jeu vidéo",
     },
 
     "publicité": {

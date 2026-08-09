@@ -41,6 +41,28 @@ const initialForm: ProspectCreate = {
   status: "À contacter",
   score: 0,
 };
+function formatIndustry(
+  industry: string | null
+): string {
+  if (!industry) {
+    return "—";
+  }
+
+  const normalized = industry
+    .trim()
+    .toLowerCase();
+
+  if (
+    normalized === "jeux vidéo" ||
+    normalized === "jeux video" ||
+    normalized === "jeu vidéo" ||
+    normalized === "jeu video"
+  ) {
+    return "Jeu vidéo";
+  }
+
+  return industry;
+}
 
 function App() {
   const [prospects, setProspects] = useState<Prospect[]>([]);
@@ -172,7 +194,7 @@ function App() {
     return Array.from(
       new Set(
         prospects
-          .map((prospect) => prospect.industry)
+          .map((prospect) => formatIndustry(prospect.industry))
           .filter((industry): industry is string => Boolean(industry))
       )
     ).sort((a, b) => a.localeCompare(b));
@@ -1530,8 +1552,7 @@ function App() {
                           </td>
 
                           <td>
-                            {prospect.industry ??
-                              "—"}
+                            {formatIndustry(prospect.industry)}
                           </td>
 
                           <td>

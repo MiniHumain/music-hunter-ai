@@ -3,6 +3,7 @@ from app.collectors.base import CollectedProspect
 
 TARGET_INDUSTRIES = {
     "jeux vidéo",
+    "jeu vidéo"
     "publicité",
     "cinéma",
     "musique",
