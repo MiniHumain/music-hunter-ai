@@ -11,6 +11,7 @@ import {
   createProspect,
   deleteProspect,
   enrichProspectsBatch,
+  generateOutreachDraft,
   getProspects,
   importProspectsCsv,
   recalculateProspectScores,
@@ -100,6 +101,8 @@ function App() {
   const [messageSubject, setMessageSubject] = useState("");
   const [messageBody, setMessageBody] = useState("");
   const [savingMessage, setSavingMessage] = useState(false);
+  const [generatingMessageDraft, setGeneratingMessageDraft] =
+    useState(false);
   const [messageError, setMessageError] =
     useState<string | null>(null);
   const [savedMessage, setSavedMessage] =
@@ -486,23 +489,38 @@ function App() {
     }
   }
 
-  function openMessageComposer(prospect: Prospect) {
+  async function openMessageComposer(
+    prospect: Prospect
+  ) {
     setMessageProspect(prospect);
-    setMessageSubject(
-      `Collaboration musicale - ${prospect.company_name}`
-    );
-    setMessageBody(
-      `Bonjour,
-
-Je vous contacte au sujet d’une possible collaboration musicale avec ${prospect.company_name}.
-
-Je serais ravi d’échanger avec vous pour voir s’il existe des opportunités de collaboration autour de vos projets.
-
-Bien cordialement`
-    );
+    setMessageSubject("");
+    setMessageBody("");
     setMessageError(null);
     setSavedMessage(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+
+    try {
+      setGeneratingMessageDraft(true);
+
+      const draft = await generateOutreachDraft(
+        prospect.id
+      );
+
+      setMessageSubject(draft.subject);
+      setMessageBody(draft.body);
+    } catch (err) {
+      setMessageError(
+        err instanceof Error
+          ? err.message
+          : "Impossible de générer le brouillon."
+      );
+    } finally {
+      setGeneratingMessageDraft(false);
+    }
   }
 
   function closeMessageComposer() {
@@ -962,11 +980,13 @@ Bien cordialement`
                 <button
                   type="submit"
                   className="primary-button"
-                  disabled={savingMessage}
+                  disabled={savingMessage || generatingMessageDraft}
                 >
-                  {savingMessage
-                    ? "Enregistrement..."
-                    : "Enregistrer le brouillon"}
+                  {generatingMessageDraft
+                    ? "Génération..."
+                    : savingMessage
+                      ? "Enregistrement..."
+                      : "Enregistrer le brouillon"}
                 </button>
               </div>
             </form>

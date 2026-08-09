@@ -56,3 +56,33 @@ def list_messages(
         db,
         prospect_id=prospect_id,
     )
+from app.services.outreach_generation import (
+    generate_outreach_draft,
+)
+from app.services import prospect_service
+@router.post(
+    "/generate/{prospect_id}",
+)
+def generate_message(
+    prospect_id: int,
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    prospect = prospect_service.get_prospect_by_id(
+        db,
+        prospect_id,
+    )
+
+    if prospect is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prospect introuvable",
+        )
+
+    subject, body = generate_outreach_draft(
+        prospect
+    )
+
+    return {
+        "subject": subject,
+        "body": body,
+    }
