@@ -409,3 +409,31 @@ td {
 table {
   min-width: 1000px;
 }
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 130px;
+}
+
+.actions button {
+  width: 100%;
+  padding: 7px 8px;
+  font-size: 12px;
+  white-space: normal;
+}
+
+th,
+td {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+table {
+  min-width: 0;
+  table-layout: auto;
+}
+
+.email-link {
+  overflow-wrap: anywhere;
+}

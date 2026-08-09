@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import {
+  createOutreachMessage,
   createProspect,
   deleteProspect,
   enrichProspectsBatch,
@@ -19,6 +20,7 @@ import {
   type ScoreRecalculationResult,
   type CollectorResult,
   type ImportResult,
+  type OutreachMessage,
   type Prospect,
   type ProspectCreate,
 } from "./services/api";
@@ -92,6 +94,16 @@ function App() {
 
   const [collectorResult, setCollectorResult] =
     useState<CollectorResult | null>(null);
+
+  const [messageProspect, setMessageProspect] =
+    useState<Prospect | null>(null);
+  const [messageSubject, setMessageSubject] = useState("");
+  const [messageBody, setMessageBody] = useState("");
+  const [savingMessage, setSavingMessage] = useState(false);
+  const [messageError, setMessageError] =
+    useState<string | null>(null);
+  const [savedMessage, setSavedMessage] =
+    useState<OutreachMessage | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -473,6 +485,74 @@ function App() {
       setRecalculatingScores(false);
     }
   }
+
+  function openMessageComposer(prospect: Prospect) {
+    setMessageProspect(prospect);
+    setMessageSubject(
+      `Collaboration musicale - ${prospect.company_name}`
+    );
+    setMessageBody(
+      `Bonjour,
+
+Je vous contacte au sujet d’une possible collaboration musicale avec ${prospect.company_name}.
+
+Je serais ravi d’échanger avec vous pour voir s’il existe des opportunités de collaboration autour de vos projets.
+
+Bien cordialement`
+    );
+    setMessageError(null);
+    setSavedMessage(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function closeMessageComposer() {
+    setMessageProspect(null);
+    setMessageSubject("");
+    setMessageBody("");
+    setMessageError(null);
+    setSavedMessage(null);
+  }
+
+  async function handleMessageSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    if (!messageProspect) {
+      return;
+    }
+
+    const subject = messageSubject.trim();
+    const body = messageBody.trim();
+
+    if (!subject || !body) {
+      setMessageError(
+        "Le sujet et le message sont obligatoires."
+      );
+      return;
+    }
+
+    try {
+      setSavingMessage(true);
+      setMessageError(null);
+
+      const created = await createOutreachMessage({
+        prospect_id: messageProspect.id,
+        subject,
+        body,
+      });
+
+      setSavedMessage(created);
+    } catch (err) {
+      setMessageError(
+        err instanceof Error
+          ? err.message
+          : "Impossible d’enregistrer le brouillon."
+      );
+    } finally {
+      setSavingMessage(false);
+    }
+  }
   return (
     <div className="app">
       <aside className="sidebar">
@@ -815,6 +895,83 @@ function App() {
             </div>
           )}
         </section>
+
+        {messageProspect && (
+          <section className="panel prospect-form-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Préparer un message</h3>
+                <p>
+                  Brouillon pour {messageProspect.company_name}
+                  {messageProspect.public_email
+                    ? ` · ${messageProspect.public_email}`
+                    : ""}
+                </p>
+              </div>
+            </div>
+
+            <form
+              className="prospect-form"
+              onSubmit={handleMessageSubmit}
+            >
+              <label>
+                Sujet
+                <input
+                  value={messageSubject}
+                  onChange={(event) =>
+                    setMessageSubject(event.target.value)
+                  }
+                  placeholder="Objet du message"
+                />
+              </label>
+
+              <label>
+                Message
+                <textarea
+                  value={messageBody}
+                  onChange={(event) =>
+                    setMessageBody(event.target.value)
+                  }
+                  rows={10}
+                  placeholder="Rédige ton message..."
+                />
+              </label>
+
+              {messageError && (
+                <p className="form-error">
+                  {messageError}
+                </p>
+              )}
+
+              {savedMessage && (
+                <div className="import-result">
+                  <strong>Brouillon enregistré.</strong>{" "}
+                  ID #{savedMessage.id} · statut {savedMessage.status}
+                </div>
+              )}
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={closeMessageComposer}
+                >
+                  Fermer
+                </button>
+
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={savingMessage}
+                >
+                  {savingMessage
+                    ? "Enregistrement..."
+                    : "Enregistrer le brouillon"}
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
 
         {showForm && (
           <section className="panel prospect-form-panel">
@@ -1442,6 +1599,17 @@ function App() {
 
                           <td>
                             <div className="actions">
+                              {prospect.public_email && (
+                                <button
+                                  className="edit-button"
+                                  onClick={() =>
+                                    openMessageComposer(prospect)
+                                  }
+                                >
+                                  Préparer un message
+                                </button>
+                              )}
+
                               <button
                                 className="edit-button"
                                 onClick={() =>

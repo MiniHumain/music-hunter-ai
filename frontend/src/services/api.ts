@@ -31,87 +31,8 @@ export interface ProspectCreate {
   score?: number;
 }
 
-export async function getProspects(): Promise<Prospect[]> {
-  const response = await fetch(`${API_URL}/prospects`);
+export type ProspectUpdate = Partial<ProspectCreate>;
 
-  if (!response.ok) {
-    throw new Error(`Erreur API : ${response.status}`);
-  }
-
-  return response.json();
-}
-
-export async function createProspect(
-  data: ProspectCreate
-): Promise<Prospect> {
-  const response = await fetch(`${API_URL}/prospects`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-
-    throw new Error(
-      `Erreur création prospect : ${response.status} ${errorBody}`
-    );
-  }
-
-  return response.json();
-}
-export interface ProspectUpdate {
-  company_name?: string;
-  country?: string | null;
-  city?: string | null;
-  website?: string | null;
-  linkedin?: string | null;
-  public_email?: string | null;
-  public_phone?: string | null;
-  industry?: string | null;
-  priority?: number;
-  status?: string;
-  score?: number;
-}
-
-export async function updateProspect(
-  id: number,
-  data: ProspectUpdate
-): Promise<Prospect> {
-  const response = await fetch(`${API_URL}/prospects/${id}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-
-    throw new Error(
-      `Erreur modification prospect : ${response.status} ${errorBody}`
-    );
-  }
-
-  return response.json();
-}
-
-export async function deleteProspect(id: number): Promise<void> {
-  const response = await fetch(`${API_URL}/prospects/${id}`, {
-    method: "DELETE",
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-
-    throw new Error(
-      `Erreur suppression prospect : ${response.status} ${errorBody}`
-    );
-  }
-}
 export interface ImportResult {
   collected: number;
   imported: number;
@@ -119,30 +40,6 @@ export interface ImportResult {
   ignored: number;
 }
 
-export async function importProspectsCsv(
-  file: File
-): Promise<ImportResult> {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const response = await fetch(
-    `${API_URL}/prospects/import`,
-    {
-      method: "POST",
-      body: formData,
-    }
-  );
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-
-    throw new Error(
-      `Erreur import CSV : ${response.status} ${errorBody}`
-    );
-  }
-
-  return response.json();
-}
 export interface CollectorResult {
   collected: number;
   imported: number;
@@ -156,39 +53,6 @@ export interface CollectorSearch {
   limit: number;
 }
 
-export async function runWikidataCollector(
-  search: CollectorSearch
-): Promise<CollectorResult> {
-  const params = new URLSearchParams();
-
-  if (search.country) {
-    params.set("country", search.country);
-  }
-
-  if (search.industry) {
-    params.set("industry", search.industry);
-  }
-
-  params.set("limit", String(search.limit));
-
-  const response = await fetch(
-    `${API_URL}/collectors/wikidata/run?${params.toString()}`,
-    {
-      method: "POST",
-    }
-  );
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-
-    throw new Error(
-      `Erreur collecte : ${response.status} ${errorBody}`
-    );
-  }
-
-
-  return response.json();
-}
 export interface BatchEnrichmentResult {
   analyzed: number;
   enriched: number;
@@ -196,51 +60,115 @@ export interface BatchEnrichmentResult {
   errors: number;
 }
 
-export async function enrichProspectsBatch(
-  limit: number
-): Promise<BatchEnrichmentResult> {
-  const params = new URLSearchParams({
-    limit: String(limit),
-  });
-
-  const response = await fetch(
-    `${API_URL}/prospects/enrich/batch?${params.toString()}`,
-    {
-      method: "POST",
-    }
-  );
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-
-    throw new Error(
-      `Erreur enrichissement : ${response.status} ${errorBody}`
-    );
-  }
-
-  return response.json();
-}
 export interface ScoreRecalculationResult {
   analyzed: number;
   updated: number;
 }
 
-export async function recalculateProspectScores():
-  Promise<ScoreRecalculationResult> {
-  const response = await fetch(
-    `${API_URL}/prospects/recalculate-scores`,
-    {
-      method: "POST",
-    }
-  );
+export interface OutreachMessageCreate {
+  prospect_id: number;
+  subject: string;
+  body: string;
+}
 
+export interface OutreachMessage {
+  id: number;
+  prospect_id: number;
+  subject: string;
+  body: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+async function ensureOk(response: Response, label: string): Promise<Response> {
   if (!response.ok) {
     const errorBody = await response.text();
-
-    throw new Error(
-      `Erreur recalcul des scores : ${response.status} ${errorBody}`
-    );
+    throw new Error(`${label} : ${response.status} ${errorBody}`);
   }
+  return response;
+}
 
-  return response.json();
+export async function getProspects(): Promise<Prospect[]> {
+  return (await ensureOk(await fetch(`${API_URL}/prospects`), "Erreur API")).json();
+}
+
+export async function createProspect(data: ProspectCreate): Promise<Prospect> {
+  return (await ensureOk(await fetch(`${API_URL}/prospects`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  }), "Erreur création prospect")).json();
+}
+
+export async function updateProspect(id: number, data: ProspectUpdate): Promise<Prospect> {
+  return (await ensureOk(await fetch(`${API_URL}/prospects/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  }), "Erreur modification prospect")).json();
+}
+
+export async function deleteProspect(id: number): Promise<void> {
+  await ensureOk(await fetch(`${API_URL}/prospects/${id}`, {
+    method: "DELETE",
+  }), "Erreur suppression prospect");
+}
+
+export async function importProspectsCsv(file: File): Promise<ImportResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return (await ensureOk(await fetch(`${API_URL}/prospects/import`, {
+    method: "POST",
+    body: formData,
+  }), "Erreur import CSV")).json();
+}
+
+export async function runWikidataCollector(search: CollectorSearch): Promise<CollectorResult> {
+  const params = new URLSearchParams();
+  if (search.country) params.set("country", search.country);
+  if (search.industry) params.set("industry", search.industry);
+  params.set("limit", String(search.limit));
+  return (await ensureOk(await fetch(
+    `${API_URL}/collectors/wikidata/run?${params.toString()}`,
+    { method: "POST" }
+  ), "Erreur collecte")).json();
+}
+
+export async function enrichProspectsBatch(limit: number): Promise<BatchEnrichmentResult> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return (await ensureOk(await fetch(
+    `${API_URL}/prospects/enrich/batch?${params.toString()}`,
+    { method: "POST" }
+  ), "Erreur enrichissement")).json();
+}
+
+export async function recalculateProspectScores(): Promise<ScoreRecalculationResult> {
+  return (await ensureOk(await fetch(
+    `${API_URL}/prospects/recalculate-scores`,
+    { method: "POST" }
+  ), "Erreur recalcul des scores")).json();
+}
+
+export async function createOutreachMessage(
+  data: OutreachMessageCreate
+): Promise<OutreachMessage> {
+  return (await ensureOk(await fetch(`${API_URL}/outreach-messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  }), "Erreur création brouillon")).json();
+}
+
+export async function getOutreachMessages(
+  prospectId?: number
+): Promise<OutreachMessage[]> {
+  const params = new URLSearchParams();
+  if (prospectId !== undefined) {
+    params.set("prospect_id", String(prospectId));
+  }
+  const query = params.toString();
+  return (await ensureOk(await fetch(
+    `${API_URL}/outreach-messages${query ? `?${query}` : ""}`
+  ), "Erreur chargement brouillons")).json();
 }
