@@ -1,5 +1,6 @@
 import re
 import time
+from urllib.parse import urlparse
 
 import httpx
 
@@ -176,6 +177,11 @@ class WikidataCollector(BaseCollector):
 
             industry_label = industry["label"]
 
+        raw_limit = min(
+            self.limit * 3,
+            500,
+        )
+
         query = f"""
         SELECT DISTINCT
             ?company
@@ -203,7 +209,7 @@ class WikidataCollector(BaseCollector):
                     wikibase:language "fr,en" .
             }}
         }}
-        LIMIT {self.limit}
+        LIMIT {raw_limit}
         """
 
         return query, industry_label
@@ -286,6 +292,46 @@ class WikidataCollector(BaseCollector):
 
         return True
 
+    def _normalize_website(
+        self,
+        website: str | None,
+    ) -> str | None:
+        if not website:
+            return None
+
+        value = website.strip()
+
+        if not value:
+            return None
+
+        if not value.startswith(
+            (
+                "http://",
+                "https://",
+            )
+        ):
+            return None
+
+        parsed = urlparse(value)
+
+        if not parsed.netloc:
+            return None
+
+        return value.rstrip("/")
+
+    def _website_domain(
+        self,
+        website: str,
+    ) -> str:
+        parsed = urlparse(website)
+
+        domain = parsed.netloc.lower()
+
+        if domain.startswith("www."):
+            domain = domain[4:]
+
+        return domain
+
     def collect(
         self,
     ) -> list[CollectedProspect]:
@@ -307,7 +353,12 @@ class WikidataCollector(BaseCollector):
             CollectedProspect
         ] = []
 
+        seen_domains: set[str] = set()
+
         for item in bindings:
+            if len(prospects) >= self.limit:
+                break
+
             company_name = (
                 item
                 .get("companyLabel", {})
@@ -319,11 +370,28 @@ class WikidataCollector(BaseCollector):
             ):
                 continue
 
-            website = (
+            raw_website = (
                 item
                 .get("website", {})
                 .get("value")
             )
+
+            website = self._normalize_website(
+                raw_website
+            )
+
+            if not website:
+                continue
+
+            domain = self._website_domain(
+                website
+            )
+
+            if not domain:
+                continue
+
+            if domain in seen_domains:
+                continue
 
             country = (
                 item
@@ -349,5 +417,7 @@ class WikidataCollector(BaseCollector):
                     source="wikidata",
                 )
             )
+
+            seen_domains.add(domain)
 
         return prospects
