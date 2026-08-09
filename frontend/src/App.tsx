@@ -8,6 +8,7 @@ import {
 
 import {
   createOutreachMessage,
+  getOutreachMessages,
   createProspect,
   deleteProspect,
   enrichProspectsBatch,
@@ -65,6 +66,9 @@ function formatIndustry(
 }
 
 function App() {
+  const [activePage, setActivePage] = useState<
+  "dashboard" | "prospects" | "messages" | "campaigns" | "stats"
+>("dashboard");
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +133,52 @@ function App() {
     useState<string | null>(null);
   const [savedMessage, setSavedMessage] =
     useState<OutreachMessage | null>(null);
+  const [outreachMessages, setOutreachMessages] =
+    useState<OutreachMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [messagesError, setMessagesError] = useState<string | null>(null);
+  const [selectedMessage, setSelectedMessage] =
+    useState<OutreachMessage | null>(null);
+
+  useEffect(() => {
+  if (activePage !== "messages") {
+    return;
+  }
+
+  let cancelled = false;
+
+  const loadMessages = async () => {
+    setLoadingMessages(true);
+    setMessagesError(null);
+
+    try {
+      const data = await getOutreachMessages();
+
+      if (!cancelled) {
+        setOutreachMessages(data);
+      }
+    } catch (err) {
+      if (!cancelled) {
+        setMessagesError(
+          err instanceof Error
+            ? err.message
+            : "Impossible de charger les brouillons."
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setLoadingMessages(false);
+      }
+    }
+  };
+
+  void loadMessages();
+
+  return () => {
+    cancelled = true;
+  };
+}, [activePage]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -606,26 +656,182 @@ function App() {
           </p>
         </div>
 
-        <nav className="navigation">
-          <button className="nav-item active">
-            Dashboard
-          </button>
+ <nav className="navigation">
+  <button
+    className={`nav-item ${
+      activePage === "dashboard" ? "active" : ""
+    }`}
+    onClick={() => setActivePage("dashboard")}
+  >
+    Dashboard
+  </button>
 
-          <button className="nav-item">
-            Prospects
-          </button>
+  <button
+    className={`nav-item ${
+      activePage === "prospects" ? "active" : ""
+    }`}
+    onClick={() => setActivePage("prospects")}
+  >
+    Prospects
+  </button>
 
-          <button className="nav-item">
-            Campagnes
-          </button>
+  <button
+    className={`nav-item ${
+      activePage === "messages" ? "active" : ""
+    }`}
+    onClick={() => setActivePage("messages")}
+  >
+    Messages
+  </button>
 
-          <button className="nav-item">
-            Statistiques
-          </button>
+  <button
+    className={`nav-item ${
+      activePage === "campaigns" ? "active" : ""
+    }`}
+    onClick={() => setActivePage("campaigns")}
+  >
+    Campagnes
+  </button>
+
+  <button
+    className={`nav-item ${
+      activePage === "stats" ? "active" : ""
+    }`}
+    onClick={() => setActivePage("stats")}
+  >
+    Statistiques
+  </button>
         </nav>
       </aside>
 
       <main className="content">
+
+        {activePage === "messages" ? (
+          <>
+            <header className="topbar">
+              <div>
+                <p className="eyebrow">CRM</p>
+                <h2>Messages</h2>
+                <p className="subtitle">
+                  Retrouve les brouillons préparés pour tes prospects.
+                </p>
+              </div>
+            </header>
+
+            <section className="panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Brouillons</h3>
+                  <p>{outreachMessages.length} message{outreachMessages.length !== 1 ? "s" : ""}</p>
+                </div>
+              </div>
+
+              {loadingMessages && (
+                <div className="message">Chargement des brouillons...</div>
+              )}
+
+              {messagesError && (
+                <div className="message error">{messagesError}</div>
+              )}
+
+              {!loadingMessages && !messagesError && outreachMessages.length === 0 && (
+                <div className="message">Aucun brouillon enregistré.</div>
+              )}
+
+              {!loadingMessages && !messagesError && outreachMessages.length > 0 && (
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Entreprise</th>
+                        <th>E-mail</th>
+                        <th>Sujet</th>
+                        <th>Statut</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {outreachMessages.map((message) => {
+                        const prospect = prospects.find(
+                          (item) => item.id === message.prospect_id
+                        );
+
+                        return (
+                          <tr key={message.id}>
+                            <td>{prospect?.company_name ?? `Prospect #${message.prospect_id}`}</td>
+                            <td>
+                              {prospect?.public_email ? (
+                                <a
+                                  href={`mailto:${prospect.public_email}`}
+                                  className="email-link"
+                                >
+                                  {prospect.public_email}
+                                </a>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                            <td>{message.subject}</td>
+                            <td>
+                              <span className="status">{message.status}</span>
+                            </td>
+                            <td>{new Date(message.created_at).toLocaleDateString("fr-FR")}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="edit-button"
+                                onClick={() => setSelectedMessage(message)}
+                              >
+                                Consulter
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            {selectedMessage && (
+              <section className="panel prospect-form-panel">
+                <div className="panel-header">
+                  <div>
+                    <h3>{selectedMessage.subject}</h3>
+                    <p>
+                      {prospects.find((p) => p.id === selectedMessage.prospect_id)
+                        ?.company_name ?? `Prospect #${selectedMessage.prospect_id}`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="prospect-form">
+                  <label>
+                    Message
+                    <textarea
+                      value={selectedMessage.body}
+                      rows={12}
+                      readOnly
+                    />
+                  </label>
+
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => setSelectedMessage(null)}
+                    >
+                      Fermer
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
+          </>
+        ) : (
+          <>
         <header className="topbar">
           <div>
             <p className="eyebrow">
@@ -1682,6 +1888,9 @@ function App() {
               </div>
             )}
         </section>
+
+          </>
+        )}
       </main>
     </div>
   );
