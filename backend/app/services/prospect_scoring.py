@@ -28,13 +28,13 @@ def calculate_prospect_score(
     score = 0.0
 
     if prospect.website:
-        score += 15
+        score += 10
 
     if prospect.public_email:
-        score += 25
+        score += 30
 
     if prospect.linkedin:
-        score += 10
+        score += 15
 
     if prospect.public_phone:
         score += 5
@@ -46,14 +46,21 @@ def calculate_prospect_score(
         score += 5
 
     if prospect.industry:
-        industry = prospect.industry.strip().lower()
+        industry = (
+            prospect.industry
+            .strip()
+            .lower()
+        )
 
         if industry in TARGET_INDUSTRIES:
             score += 25
         else:
             score += 10
 
-    return min(score, 100.0)
+    return min(
+        score,
+        100.0,
+    )
 
 
 def calculate_priority(
