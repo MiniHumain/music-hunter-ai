@@ -11,6 +11,7 @@ import {
   getOutreachMessages,
   updateOutreachMessage,
   deleteOutreachMessage,
+  sendOutreachMessage,
   createProspect,
   deleteProspect,
   enrichProspectsBatch,
@@ -146,6 +147,8 @@ function App() {
   const [editingMessageBody, setEditingMessageBody] = useState("");
   const [updatingMessage, setUpdatingMessage] = useState(false);
   const [deletingMessageId, setDeletingMessageId] = useState<number | null>(null);
+  const [sendingMessageId, setSendingMessageId] = useState<number | null>(null);
+  const [messageToSend, setMessageToSend] = useState<OutreachMessage | null>(null);
 
   useEffect(() => {
   if (activePage !== "messages") {
@@ -667,6 +670,58 @@ function App() {
     }
   }
 
+  function requestSavedMessageSend(message: OutreachMessage) {
+    if (message.status === "sent") return;
+
+    const prospect = prospects.find((item) => item.id === message.prospect_id);
+
+    if (!prospect?.public_email) {
+      setMessagesError("Ce prospect ne possède pas d'email public.");
+      return;
+    }
+
+    setMessagesError(null);
+    setMessageToSend(message);
+  }
+
+  async function confirmSavedMessageSend() {
+    if (!messageToSend || messageToSend.status === "sent") return;
+
+    const message = messageToSend;
+    const prospect = prospects.find((item) => item.id === message.prospect_id);
+
+    if (!prospect?.public_email) {
+      setMessagesError("Ce prospect ne possède pas d'email public.");
+      setMessageToSend(null);
+      return;
+    }
+
+    try {
+      setSendingMessageId(message.id);
+      setMessagesError(null);
+
+      const sent = await sendOutreachMessage(message.id);
+
+      setOutreachMessages((current) =>
+        current.map((item) => item.id === sent.id ? sent : item)
+      );
+
+      if (selectedMessage?.id === sent.id) {
+        setSelectedMessage(sent);
+        setEditingMessage(false);
+      }
+
+      setMessageToSend(null);
+      setProspects(await getProspects());
+    } catch (err) {
+      setMessagesError(
+        err instanceof Error ? err.message : "Impossible d'envoyer l'e-mail."
+      );
+    } finally {
+      setSendingMessageId(null);
+    }
+  }
+
   async function handleMessageSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
@@ -846,13 +901,37 @@ function App() {
                                 <button type="button" className="edit-button" onClick={() => openSavedMessage(message)}>
                                   Consulter
                                 </button>
-                                <button type="button" className="edit-button" onClick={() => startEditingMessage(message)}>
+                                <button
+                                  type="button"
+                                  className="edit-button"
+                                  disabled={message.status === "sent"}
+                                  onClick={() => startEditingMessage(message)}
+                                >
                                   Modifier
                                 </button>
                                 <button
                                   type="button"
+                                  className="primary-button"
+                                  disabled={
+                                    message.status === "sent" ||
+                                    sendingMessageId === message.id ||
+                                    !prospect?.public_email
+                                  }
+                                  onClick={() => requestSavedMessageSend(message)}
+                                >
+                                  {message.status === "sent"
+                                    ? "Envoyé"
+                                    : sendingMessageId === message.id
+                                      ? "Envoi..."
+                                      : "Envoyer"}
+                                </button>
+                                <button
+                                  type="button"
                                   className="delete-button"
-                                  disabled={deletingMessageId === message.id}
+                                  disabled={
+                                    deletingMessageId === message.id ||
+                                    sendingMessageId === message.id
+                                  }
                                   onClick={() => handleSavedMessageDelete(message)}
                                 >
                                   {deletingMessageId === message.id ? "Suppression..." : "Supprimer"}
@@ -916,14 +995,104 @@ function App() {
                       <button type="button" className="secondary-button" onClick={() => setSelectedMessage(null)}>
                         Fermer
                       </button>
-                      <button type="button" className="primary-button" onClick={() => startEditingMessage(selectedMessage)}>
-                        Modifier
+                      {selectedMessage.status !== "sent" && (
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => startEditingMessage(selectedMessage)}
+                        >
+                          Modifier
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="primary-button"
+                        disabled={
+                          selectedMessage.status === "sent" ||
+                          sendingMessageId === selectedMessage.id ||
+                          !prospects.find((p) => p.id === selectedMessage.prospect_id)?.public_email
+                        }
+                        onClick={() => requestSavedMessageSend(selectedMessage)}
+                      >
+                        {selectedMessage.status === "sent"
+                          ? "Envoyé"
+                          : sendingMessageId === selectedMessage.id
+                            ? "Envoi..."
+                            : "Envoyer"}
                       </button>
                     </div>
                   </div>
                 )}
               </section>
             )}
+
+            {messageToSend && (() => {
+              const sendProspect = prospects.find(
+                (p) => p.id === messageToSend.prospect_id
+              );
+
+              return (
+                <div
+                  className="send-confirmation-overlay"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="send-confirmation-title"
+                >
+                  <div className="send-confirmation-modal">
+                    <p className="eyebrow">CONFIRMATION D'ENVOI</p>
+                    <h3 id="send-confirmation-title">Vérifier avant d'envoyer</h3>
+
+                    <div className="send-confirmation-details">
+                      <p>
+                        <strong>Entreprise :</strong>{" "}
+                        {sendProspect?.company_name ?? `Prospect #${messageToSend.prospect_id}`}
+                      </p>
+                      <p>
+                        <strong>Destinataire :</strong>{" "}
+                        {sendProspect?.public_email ?? "—"}
+                      </p>
+                      <p>
+                        <strong>Sujet :</strong> {messageToSend.subject}
+                      </p>
+                    </div>
+
+                    <label className="send-confirmation-preview">
+                      Message
+                      <textarea
+                        value={messageToSend.body}
+                        rows={12}
+                        readOnly
+                      />
+                    </label>
+
+                    <p className="send-confirmation-warning">
+                      Attention : confirmer déclenchera l'envoi réel de cet e-mail.
+                    </p>
+
+                    <div className="form-actions">
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={sendingMessageId === messageToSend.id}
+                        onClick={() => setMessageToSend(null)}
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        type="button"
+                        className="primary-button"
+                        disabled={sendingMessageId === messageToSend.id}
+                        onClick={confirmSavedMessageSend}
+                      >
+                        {sendingMessageId === messageToSend.id
+                          ? "Envoi..."
+                          : "Confirmer l'envoi"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </>
         ) : (
           <>

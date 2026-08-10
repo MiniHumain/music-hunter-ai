@@ -389,3 +389,20 @@ export async function deleteOutreachMessage(
     "Erreur suppression brouillon"
   );
 }
+export async function sendOutreachMessage(
+  messageId: number
+): Promise<OutreachMessage> {
+  const response = await fetch(
+    `${API_URL}/outreach-messages/${messageId}/send`,
+    {
+      method: "POST",
+    }
+  );
+
+  return (
+    await ensureOk(
+      response,
+      "Erreur envoi email"
+    )
+  ).json();
+}

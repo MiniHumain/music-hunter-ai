@@ -22,6 +22,7 @@ from app.services.outreach_message_service import (
     delete_outreach_message,
     get_outreach_message_by_id,
     get_outreach_messages,
+    send_outreach_message,
     update_outreach_message,
 )
 
@@ -93,6 +94,45 @@ def generate_message(
         "subject": subject,
         "body": body,
     }
+
+
+@router.post(
+    "/{message_id}/send",
+    response_model=OutreachMessageRead,
+)
+def send_message(
+    message_id: int,
+    db: Session = Depends(get_db),
+) -> OutreachMessageRead:
+    message = get_outreach_message_by_id(
+        db,
+        message_id,
+    )
+
+    if message is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Brouillon introuvable",
+        )
+
+    try:
+        return send_outreach_message(
+            db,
+            message,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "Impossible d'envoyer l'email : "
+                f"{exc}"
+            ),
+        ) from exc
 
 
 @router.patch(

@@ -7,6 +7,7 @@ from app.schemas.outreach_message import (
     OutreachMessageCreate,
     OutreachMessageUpdate,
 )
+from app.services.email_service import send_email
 
 
 def create_outreach_message(
@@ -104,3 +105,46 @@ def delete_outreach_message(
 ) -> None:
     db.delete(message)
     db.commit()
+
+
+def send_outreach_message(
+    db: Session,
+    message: OutreachMessage,
+) -> OutreachMessage:
+    if message.status == "sent":
+        raise ValueError(
+            "Ce message a déjà été envoyé"
+        )
+
+    prospect = db.get(
+        Prospect,
+        message.prospect_id,
+    )
+
+    if prospect is None:
+        raise ValueError(
+            "Prospect introuvable"
+        )
+
+    if not prospect.public_email:
+        raise ValueError(
+            "Le prospect ne possède pas d'email public"
+        )
+
+    send_email(
+        to_email=prospect.public_email,
+        subject=message.subject,
+        body=message.body,
+    )
+
+    message.status = "sent"
+
+    if prospect.status == "À contacter":
+        prospect.status = "Contacté"
+
+    db.add(message)
+    db.add(prospect)
+    db.commit()
+    db.refresh(message)
+
+    return message
