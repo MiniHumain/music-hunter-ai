@@ -895,7 +895,11 @@ function App() {
                             <td>
                               <span className="status">{message.status}</span>
                             </td>
-                            <td>{new Date(message.created_at).toLocaleDateString("fr-FR")}</td>
+                            <td><td>
+  {message.status === "sent" && message.sent_at
+    ? new Date(`${message.sent_at}Z`).toLocaleString("fr-FR")
+    : new Date(message.created_at).toLocaleDateString("fr-FR")}
+</td></td>
                             <td>
                               <div className="actions">
                                 <button type="button" className="edit-button" onClick={() => openSavedMessage(message)}>

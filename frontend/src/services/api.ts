@@ -84,6 +84,7 @@ export interface OutreachMessage {
   subject: string;
   body: string;
   status: string;
+  sent_at: string | null;
   created_at: string;
   updated_at: string;
 }

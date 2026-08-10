@@ -19,6 +19,7 @@ class OutreachMessageRead(BaseModel):
     subject: str
     body: str
     status: str
+    sent_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

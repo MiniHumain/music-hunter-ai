@@ -42,6 +42,11 @@ class OutreachMessage(Base):
         default="draft",
         index=True,
     )
+    sent_at: Mapped[datetime | None] = mapped_column(
+    DateTime,
+    nullable=True,
+    default=None,
+)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
