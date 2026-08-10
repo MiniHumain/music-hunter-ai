@@ -3,7 +3,10 @@ from sqlalchemy.orm import Session
 
 from app.models.outreach_message import OutreachMessage
 from app.models.prospect import Prospect
-from app.schemas.outreach_message import OutreachMessageCreate
+from app.schemas.outreach_message import (
+    OutreachMessageCreate,
+    OutreachMessageUpdate,
+)
 
 
 def create_outreach_message(
@@ -54,3 +57,50 @@ def get_outreach_messages(
     return list(
         db.scalars(statement).all()
     )
+
+
+def get_outreach_message_by_id(
+    db: Session,
+    message_id: int,
+) -> OutreachMessage | None:
+    return db.get(
+        OutreachMessage,
+        message_id,
+    )
+
+
+def update_outreach_message(
+    db: Session,
+    message: OutreachMessage,
+    data: OutreachMessageUpdate,
+) -> OutreachMessage:
+    update_data = data.model_dump(
+        exclude_unset=True
+    )
+
+    for field, value in update_data.items():
+        if (
+            field in {"subject", "body"}
+            and isinstance(value, str)
+        ):
+            value = value.strip()
+
+        setattr(
+            message,
+            field,
+            value,
+        )
+
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+
+    return message
+
+
+def delete_outreach_message(
+    db: Session,
+    message: OutreachMessage,
+) -> None:
+    db.delete(message)
+    db.commit()

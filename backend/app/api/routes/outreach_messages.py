@@ -2,6 +2,7 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Response,
     status,
 )
 from sqlalchemy.orm import Session
@@ -10,10 +11,18 @@ from app.db.database import get_db
 from app.schemas.outreach_message import (
     OutreachMessageCreate,
     OutreachMessageRead,
+    OutreachMessageUpdate,
+)
+from app.services import prospect_service
+from app.services.outreach_generation import (
+    generate_outreach_draft,
 )
 from app.services.outreach_message_service import (
     create_outreach_message,
+    delete_outreach_message,
+    get_outreach_message_by_id,
     get_outreach_messages,
+    update_outreach_message,
 )
 
 
@@ -56,10 +65,8 @@ def list_messages(
         db,
         prospect_id=prospect_id,
     )
-from app.services.outreach_generation import (
-    generate_outreach_draft,
-)
-from app.services import prospect_service
+
+
 @router.post(
     "/generate/{prospect_id}",
 )
@@ -86,3 +93,59 @@ def generate_message(
         "subject": subject,
         "body": body,
     }
+
+
+@router.patch(
+    "/{message_id}",
+    response_model=OutreachMessageRead,
+)
+def update_message(
+    message_id: int,
+    data: OutreachMessageUpdate,
+    db: Session = Depends(get_db),
+) -> OutreachMessageRead:
+    message = get_outreach_message_by_id(
+        db,
+        message_id,
+    )
+
+    if message is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Brouillon introuvable",
+        )
+
+    return update_outreach_message(
+        db,
+        message,
+        data,
+    )
+
+
+@router.delete(
+    "/{message_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_message(
+    message_id: int,
+    db: Session = Depends(get_db),
+) -> Response:
+    message = get_outreach_message_by_id(
+        db,
+        message_id,
+    )
+
+    if message is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Brouillon introuvable",
+        )
+
+    delete_outreach_message(
+        db,
+        message,
+    )
+
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT
+    )

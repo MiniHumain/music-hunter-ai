@@ -9,6 +9,8 @@ import {
 import {
   createOutreachMessage,
   getOutreachMessages,
+  updateOutreachMessage,
+  deleteOutreachMessage,
   createProspect,
   deleteProspect,
   enrichProspectsBatch,
@@ -139,6 +141,11 @@ function App() {
   const [messagesError, setMessagesError] = useState<string | null>(null);
   const [selectedMessage, setSelectedMessage] =
     useState<OutreachMessage | null>(null);
+  const [editingMessage, setEditingMessage] = useState(false);
+  const [editingMessageSubject, setEditingMessageSubject] = useState("");
+  const [editingMessageBody, setEditingMessageBody] = useState("");
+  const [updatingMessage, setUpdatingMessage] = useState(false);
+  const [deletingMessageId, setDeletingMessageId] = useState<number | null>(null);
 
   useEffect(() => {
   if (activePage !== "messages") {
@@ -603,6 +610,63 @@ function App() {
     setSavedMessage(null);
   }
 
+  function openSavedMessage(message: OutreachMessage) {
+    setSelectedMessage(message);
+    setEditingMessage(false);
+    setEditingMessageSubject(message.subject);
+    setEditingMessageBody(message.body);
+  }
+
+  function startEditingMessage(message: OutreachMessage) {
+    setSelectedMessage(message);
+    setEditingMessage(true);
+    setEditingMessageSubject(message.subject);
+    setEditingMessageBody(message.body);
+  }
+
+  async function handleSavedMessageUpdate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedMessage) return;
+    const subject = editingMessageSubject.trim();
+    const body = editingMessageBody.trim();
+    if (!subject || !body) {
+      setMessagesError("Le sujet et le message sont obligatoires.");
+      return;
+    }
+    try {
+      setUpdatingMessage(true);
+      setMessagesError(null);
+      const updated = await updateOutreachMessage(selectedMessage.id, { subject, body });
+      setOutreachMessages((current) =>
+        current.map((message) => message.id === updated.id ? updated : message)
+      );
+      setSelectedMessage(updated);
+      setEditingMessage(false);
+    } catch (err) {
+      setMessagesError(err instanceof Error ? err.message : "Impossible de modifier le brouillon.");
+    } finally {
+      setUpdatingMessage(false);
+    }
+  }
+
+  async function handleSavedMessageDelete(message: OutreachMessage) {
+    if (!window.confirm(`Supprimer le brouillon "${message.subject}" ?`)) return;
+    try {
+      setDeletingMessageId(message.id);
+      setMessagesError(null);
+      await deleteOutreachMessage(message.id);
+      setOutreachMessages((current) => current.filter((item) => item.id !== message.id));
+      if (selectedMessage?.id === message.id) {
+        setSelectedMessage(null);
+        setEditingMessage(false);
+      }
+    } catch (err) {
+      setMessagesError(err instanceof Error ? err.message : "Impossible de supprimer le brouillon.");
+    } finally {
+      setDeletingMessageId(null);
+    }
+  }
+
   async function handleMessageSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
@@ -778,13 +842,22 @@ function App() {
                             </td>
                             <td>{new Date(message.created_at).toLocaleDateString("fr-FR")}</td>
                             <td>
-                              <button
-                                type="button"
-                                className="edit-button"
-                                onClick={() => setSelectedMessage(message)}
-                              >
-                                Consulter
-                              </button>
+                              <div className="actions">
+                                <button type="button" className="edit-button" onClick={() => openSavedMessage(message)}>
+                                  Consulter
+                                </button>
+                                <button type="button" className="edit-button" onClick={() => startEditingMessage(message)}>
+                                  Modifier
+                                </button>
+                                <button
+                                  type="button"
+                                  className="delete-button"
+                                  disabled={deletingMessageId === message.id}
+                                  onClick={() => handleSavedMessageDelete(message)}
+                                >
+                                  {deletingMessageId === message.id ? "Suppression..." : "Supprimer"}
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -807,26 +880,48 @@ function App() {
                   </div>
                 </div>
 
-                <div className="prospect-form">
-                  <label>
-                    Message
-                    <textarea
-                      value={selectedMessage.body}
-                      rows={12}
-                      readOnly
-                    />
-                  </label>
-
-                  <div className="form-actions">
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => setSelectedMessage(null)}
-                    >
-                      Fermer
-                    </button>
+                {editingMessage ? (
+                  <form className="prospect-form" onSubmit={handleSavedMessageUpdate}>
+                    <label>
+                      Sujet
+                      <input
+                        value={editingMessageSubject}
+                        onChange={(event) => setEditingMessageSubject(event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Message
+                      <textarea
+                        value={editingMessageBody}
+                        onChange={(event) => setEditingMessageBody(event.target.value)}
+                        rows={12}
+                      />
+                    </label>
+                    <div className="form-actions">
+                      <button type="button" className="secondary-button" onClick={() => setEditingMessage(false)}>
+                        Annuler
+                      </button>
+                      <button type="submit" className="primary-button" disabled={updatingMessage}>
+                        {updatingMessage ? "Enregistrement..." : "Enregistrer les modifications"}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="prospect-form">
+                    <label>
+                      Message
+                      <textarea value={selectedMessage.body} rows={12} readOnly />
+                    </label>
+                    <div className="form-actions">
+                      <button type="button" className="secondary-button" onClick={() => setSelectedMessage(null)}>
+                        Fermer
+                      </button>
+                      <button type="button" className="primary-button" onClick={() => startEditingMessage(selectedMessage)}>
+                        Modifier
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </section>
             )}
           </>

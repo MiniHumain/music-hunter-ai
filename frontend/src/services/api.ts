@@ -31,7 +31,8 @@ export interface ProspectCreate {
   score?: number;
 }
 
-export type ProspectUpdate = Partial<ProspectCreate>;
+export type ProspectUpdate =
+  Partial<ProspectCreate>;
 
 export interface ImportResult {
   collected: number;
@@ -69,6 +70,12 @@ export interface OutreachMessageCreate {
   prospect_id: number;
   subject: string;
   body: string;
+}
+
+export interface OutreachMessageUpdate {
+  subject?: string;
+  body?: string;
+  status?: string;
 }
 
 export interface OutreachMessage {
@@ -204,14 +211,23 @@ export async function runWikidataCollector(
   const params = new URLSearchParams();
 
   if (search.country) {
-    params.set("country", search.country);
+    params.set(
+      "country",
+      search.country
+    );
   }
 
   if (search.industry) {
-    params.set("industry", search.industry);
+    params.set(
+      "industry",
+      search.industry
+    );
   }
 
-  params.set("limit", String(search.limit));
+  params.set(
+    "limit",
+    String(search.limit)
+  );
 
   const response = await fetch(
     `${API_URL}/collectors/wikidata/run?${params.toString()}`,
@@ -333,4 +349,43 @@ export async function generateOutreachDraft(
       "Erreur génération brouillon"
     )
   ).json();
+}
+
+export async function updateOutreachMessage(
+  messageId: number,
+  data: OutreachMessageUpdate
+): Promise<OutreachMessage> {
+  const response = await fetch(
+    `${API_URL}/outreach-messages/${messageId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    }
+  );
+
+  return (
+    await ensureOk(
+      response,
+      "Erreur modification brouillon"
+    )
+  ).json();
+}
+
+export async function deleteOutreachMessage(
+  messageId: number
+): Promise<void> {
+  const response = await fetch(
+    `${API_URL}/outreach-messages/${messageId}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  await ensureOk(
+    response,
+    "Erreur suppression brouillon"
+  );
 }
