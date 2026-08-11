@@ -203,8 +203,6 @@ def _generic_message(
     )
 
     return subject, body
-
-
 def generate_outreach_draft(
     prospect: Prospect,
 ) -> tuple[str, str]:
@@ -215,6 +213,130 @@ def generate_outreach_draft(
         if prospect.industry
         else ""
     )
+
+    if industry in {
+        "jeu vidéo",
+        "jeux vidéo",
+        "jeux video",
+        "video games",
+    }:
+        return _video_game_message(
+            prospect
+        )
+
+    if industry in {
+        "cinéma",
+        "cinema",
+        "film",
+        "film industry",
+    }:
+        return _cinema_message(
+            prospect
+        )
+
+    if industry in {
+        "publicité",
+        "publicite",
+        "advertising",
+    }:
+        return _advertising_message(
+            prospect
+        )
+
+    if industry in {
+        "musique",
+        "music",
+        "music industry",
+    }:
+        return _music_message(
+            prospect
+        )
+
+    return _generic_message(
+        prospect
+    )
+
+
+
+def generate_follow_up_draft(
+    prospect: Prospect,
+) -> tuple[str, str]:
+    industry = (
+        prospect.industry.strip().lower()
+        if prospect.industry
+        else ""
+    )
+
+    subject = (
+        f"Petit suivi - {prospect.company_name}"
+    )
+
+    if industry in {
+        "jeu vidéo",
+        "jeux vidéo",
+        "jeux video",
+        "video games",
+    }:
+        context = (
+            "Je voulais simplement revenir vers vous "
+            "concernant une éventuelle collaboration "
+            "musicale sur vos projets de jeu vidéo."
+        )
+
+    elif industry in {
+        "cinéma",
+        "cinema",
+        "film",
+        "film industry",
+    }:
+        context = (
+            "Je voulais simplement revenir vers vous "
+            "concernant une éventuelle collaboration "
+            "autour de la musique à l’image."
+        )
+
+    elif industry in {
+        "publicité",
+        "publicite",
+        "advertising",
+    }:
+        context = (
+            "Je voulais simplement revenir vers vous "
+            "concernant une éventuelle collaboration "
+            "musicale sur vos campagnes ou contenus."
+        )
+
+    elif industry in {
+        "musique",
+        "music",
+        "music industry",
+    }:
+        context = (
+            "Je voulais simplement revenir vers vous "
+            "concernant une éventuelle collaboration "
+            "musicale."
+        )
+
+    else:
+        context = (
+            "Je voulais simplement revenir vers vous "
+            "concernant mon précédent message."
+        )
+
+    body = (
+        f"Bonjour,\n\n"
+        f"Petit message de suivi concernant "
+        f"{prospect.company_name}.\n\n"
+        f"{context}\n\n"
+        f"Si le sujet peut vous intéresser, "
+        f"ce serait avec plaisir que j’échangerais "
+        f"avec vous.\n\n"
+        f"Je vous remets mon SoundCloud ici :\n"
+        f"{OUTREACH_SOUNDCLOUD}\n\n"
+        f"{_signature()}"
+    )
+
+    return subject, body
 
     if industry in {
         "jeu vidéo",

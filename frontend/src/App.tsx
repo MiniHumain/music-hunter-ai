@@ -18,6 +18,7 @@ import {
   generateOutreachDraft,
   getProspects,
   importProspectsCsv,
+  markProspectReplied,
   recalculateProspectScores,
   runWikidataCollector,
   updateProspect,
@@ -66,6 +67,38 @@ function formatIndustry(
   }
 
   return industry;
+}
+
+function formatTrackingDate(
+  value: string | null
+): string {
+  if (!value) {
+    return "—";
+  }
+
+  const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(
+    value
+  )
+    ? value
+    : `${value}Z`;
+
+  return new Date(normalized).toLocaleString("fr-FR");
+}
+
+function needsFollowUp(
+  prospect: Prospect
+): boolean {
+  if (!prospect.follow_up_at || prospect.replied_at) {
+    return false;
+  }
+
+  const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(
+    prospect.follow_up_at
+  )
+    ? prospect.follow_up_at
+    : `${prospect.follow_up_at}Z`;
+
+  return new Date(normalized).getTime() <= Date.now();
 }
 
 function App() {
@@ -358,6 +391,30 @@ function App() {
       behavior: "smooth",
     });
   }
+  async function handleMarkReplied(
+  prospect: Prospect
+) {
+  try {
+    const updatedProspect =
+      await markProspectReplied(
+        prospect.id
+      );
+
+    setProspects((current) =>
+      current.map((item) =>
+        item.id === updatedProspect.id
+          ? updatedProspect
+          : item
+      )
+    );
+  } catch (err) {
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Impossible d'enregistrer la réponse."
+    );
+  }
+}
 
   async function handleDelete(
     prospect: Prospect
@@ -1994,6 +2051,10 @@ function App() {
                       </th>
 
                       <th>
+                        Suivi
+                      </th>
+
+                      <th>
                         Score
                       </th>
 
@@ -2101,6 +2162,38 @@ function App() {
                                 prospect.status
                               }
                             </span>
+                          </td>
+
+                          <td>
+                            <div className="prospect-tracking">
+                              <span>
+                                <strong>Dernier contact :</strong>{" "}
+                                {formatTrackingDate(prospect.last_contacted_at)}
+                              </span>
+                              <span>
+                                <strong>Réponse :</strong>{" "}
+                                {formatTrackingDate(prospect.replied_at)}
+                              </span>
+                              <span>
+                                <strong>Relance :</strong>{" "}
+                                {formatTrackingDate(prospect.follow_up_at)}
+                              </span>
+                              {needsFollowUp(prospect) && (
+  <span className="status">
+    À relancer
+  </span>
+)}
+{!prospect.replied_at && (
+  <button
+    type="button"
+    onClick={() => {
+      void handleMarkReplied(prospect);
+    }}
+  >
+    Réponse reçue
+  </button>
+)}
+                            </div>
                           </td>
 
                           <td>

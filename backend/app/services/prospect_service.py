@@ -1,17 +1,27 @@
+from datetime import UTC, datetime
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from app.collectors.base import CollectedProspect
+from app.models.prospect import Prospect
+from app.schemas.prospect import (
+    ProspectCreate,
+    ProspectUpdate,
+)
 from app.services.prospect_scoring import (
     calculate_priority,
     calculate_prospect_score,
 )
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
-from app.models.prospect import Prospect
-from app.schemas.prospect import ProspectCreate, ProspectUpdate
 
 
-def create_prospect(db: Session, data: ProspectCreate) -> Prospect:
-    prospect = Prospect(**data.model_dump())
+def create_prospect(
+    db: Session,
+    data: ProspectCreate,
+) -> Prospect:
+    prospect = Prospect(
+        **data.model_dump()
+    )
 
     db.add(prospect)
     db.commit()
@@ -27,19 +37,26 @@ def get_prospects(
 ) -> list[Prospect]:
     statement = (
         select(Prospect)
-        .order_by(Prospect.created_at.desc())
+        .order_by(
+            Prospect.created_at.desc()
+        )
         .offset(skip)
         .limit(limit)
     )
 
-    return list(db.scalars(statement).all())
+    return list(
+        db.scalars(statement).all()
+    )
 
 
 def get_prospect_by_id(
     db: Session,
     prospect_id: int,
 ) -> Prospect | None:
-    return db.get(Prospect, prospect_id)
+    return db.get(
+        Prospect,
+        prospect_id,
+    )
 
 
 def update_prospect(
@@ -47,10 +64,16 @@ def update_prospect(
     prospect: Prospect,
     data: ProspectUpdate,
 ) -> Prospect:
-    update_data = data.model_dump(exclude_unset=True)
+    update_data = data.model_dump(
+        exclude_unset=True
+    )
 
     for field, value in update_data.items():
-        setattr(prospect, field, value)
+        setattr(
+            prospect,
+            field,
+            value,
+        )
 
     db.add(prospect)
     db.commit()
@@ -65,6 +88,24 @@ def delete_prospect(
 ) -> None:
     db.delete(prospect)
     db.commit()
+
+
+def mark_prospect_replied(
+    db: Session,
+    prospect: Prospect,
+) -> Prospect:
+    prospect.status = "Répondu"
+    prospect.replied_at = (
+        datetime.now(UTC)
+        .replace(tzinfo=None)
+    )
+    prospect.follow_up_at = None
+
+    db.add(prospect)
+    db.commit()
+    db.refresh(prospect)
+
+    return prospect
 
 
 def recalculate_all_scores(

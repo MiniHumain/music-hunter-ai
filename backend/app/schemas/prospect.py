@@ -71,4 +71,10 @@ class ProspectRead(ProspectBase):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    last_contacted_at: datetime | None = None
+    replied_at: datetime | None = None
+    follow_up_at: datetime | None = None
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )

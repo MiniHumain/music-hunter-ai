@@ -13,6 +13,9 @@ export interface Prospect {
   priority: number;
   status: string;
   score: number;
+  last_contacted_at: string | null;
+  replied_at: string | null;
+  follow_up_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -404,6 +407,23 @@ export async function sendOutreachMessage(
     await ensureOk(
       response,
       "Erreur envoi email"
+    )
+  ).json();
+}
+export async function markProspectReplied(
+  prospectId: number
+): Promise<Prospect> {
+  const response = await fetch(
+    `${API_URL}/prospects/${prospectId}/mark-replied`,
+    {
+      method: "POST",
+    }
+  );
+
+  return (
+    await ensureOk(
+      response,
+      "Erreur enregistrement réponse"
     )
   ).json();
 }

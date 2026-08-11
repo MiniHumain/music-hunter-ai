@@ -1,4 +1,4 @@
-from datetime import datetime, UTC
+from datetime import datetime, timedelta, UTC
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -140,6 +140,8 @@ def send_outreach_message(
 
     message.status = "sent"
     message.sent_at = datetime.now(UTC).replace(tzinfo=None)
+    prospect.last_contacted_at = message.sent_at
+    prospect.follow_up_at = message.sent_at + timedelta(days=7)
 
     if prospect.status == "À contacter":
         prospect.status = "Contacté"

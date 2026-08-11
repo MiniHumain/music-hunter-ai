@@ -15,8 +15,10 @@ from app.schemas.outreach_message import (
 )
 from app.services import prospect_service
 from app.services.outreach_generation import (
+    generate_follow_up_draft,
     generate_outreach_draft,
 )
+
 from app.services.outreach_message_service import (
     create_outreach_message,
     delete_outreach_message,
@@ -79,6 +81,7 @@ def generate_message(
         db,
         prospect_id,
     )
+    
 
     if prospect is None:
         raise HTTPException(
@@ -87,6 +90,32 @@ def generate_message(
         )
 
     subject, body = generate_outreach_draft(
+        prospect
+    )
+
+    return {
+        "subject": subject,
+        "body": body,
+    }
+@router.post(
+    "/generate-follow-up/{prospect_id}",
+)
+def generate_follow_up_message(
+    prospect_id: int,
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    prospect = prospect_service.get_prospect_by_id(
+        db,
+        prospect_id,
+    )
+
+    if prospect is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prospect introuvable",
+        )
+
+    subject, body = generate_follow_up_draft(
         prospect
     )
 

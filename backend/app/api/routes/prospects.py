@@ -320,6 +320,29 @@ def enrich_prospects_batch(
     "/{prospect_id}",
     response_model=ProspectRead,
 )
+@router.post(
+    "/{prospect_id}/mark-replied",
+    response_model=ProspectRead,
+)
+def mark_prospect_replied(
+    prospect_id: int,
+    db: Session = Depends(get_db),
+) -> ProspectRead:
+    prospect = prospect_service.get_prospect_by_id(
+        db,
+        prospect_id,
+    )
+
+    if prospect is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prospect introuvable",
+        )
+
+    return prospect_service.mark_prospect_replied(
+        db,
+        prospect,
+    )
 def get_prospect(
     prospect_id: int,
     db: Session = Depends(get_db),

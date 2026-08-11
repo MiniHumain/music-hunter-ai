@@ -74,6 +74,24 @@ class Prospect(Base):
         default=0.0,
     )
 
+    last_contacted_at: Mapped[datetime | None] = mapped_column(
+    DateTime,
+    nullable=True,
+    default=None,
+)
+
+    replied_at: Mapped[datetime | None] = mapped_column(
+    DateTime,
+    nullable=True,
+    default=None,
+)
+
+    follow_up_at: Mapped[datetime | None] = mapped_column(
+    DateTime,
+    nullable=True,
+    default=None,
+)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
