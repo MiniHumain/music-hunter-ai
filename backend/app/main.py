@@ -1,15 +1,18 @@
+from app.api.routes import collectors
 from dotenv import load_dotenv
 from fastapi import FastAPI
 load_dotenv()
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.api.routes import collectors
 from app.db.database import Base, engine
 from app.models import (
+    Campaign,
+    CampaignProspect,
     OutreachMessage,
     Prospect,
-)  # noqa: F401
-from app.api.routes import collectors
+)
 
 Base.metadata.create_all(bind=engine)
 
