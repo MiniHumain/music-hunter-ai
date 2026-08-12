@@ -272,8 +272,17 @@ function App() {
         (prospect) =>
           prospect.status === "Client"
       ).length,
+
+      followUps: prospects.filter(
+  (prospect) => needsFollowUp(prospect)
+).length,
+
+drafts: outreachMessages.filter(
+  (message) =>
+    message.status === "draft"
+).length,
     };
-  }, [prospects]);
+  }, [prospects, outreachMessages]);
 
   const availableCountries = useMemo(() => {
     return Array.from(
@@ -283,8 +292,7 @@ function App() {
           .filter((country): country is string => Boolean(country))
       )
     ).sort((a, b) => a.localeCompare(b));
-  }, [prospects]);
-
+  }, [prospects,]);
   const availableIndustries = useMemo(() => {
     return Array.from(
       new Set(
@@ -1894,7 +1902,141 @@ function App() {
             label="Clients"
             value={stats.clients}
           />
+          <StatCard
+  label="À relancer"
+  value={stats.followUps}
+/>
+
+<StatCard
+  label="Brouillons"
+  value={stats.drafts}
+/>
         </section>
+        <section className="panel">
+  <div className="panel-header">
+    <div>
+      <h3>Actions du jour</h3>
+      <p>Prospects à relancer maintenant.</p>
+    </div>
+  </div>
+
+  <div className="panel-header">
+  <div>
+    <h3>Brouillons prêts à envoyer</h3>
+    <p>Messages enregistrés mais pas encore envoyés.</p>
+  </div>
+</div>
+
+{outreachMessages.filter(
+  (message) => message.status === "draft"
+).length === 0 ? (
+  <div className="message">
+    Aucun brouillon en attente.
+  </div>
+) : (
+  <div className="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Entreprise</th>
+          <th>Sujet</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {outreachMessages
+          .filter(
+            (message) => message.status === "draft"
+          )
+          .map((message) => {
+            const prospect = prospects.find(
+              (item) =>
+                item.id === message.prospect_id
+            );
+
+            return (
+              <tr key={message.id}>
+                <td>
+                  {prospect?.company_name ??
+                    `Prospect #${message.prospect_id}`}
+                </td>
+
+                <td>{message.subject}</td>
+
+                <td>
+                  <button
+                    type="button"
+                    className="edit-button"
+                    onClick={() => {
+                      setActivePage("messages");
+                      openSavedMessage(message);
+                    }}
+                  >
+                    Vérifier le brouillon
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+      </tbody>
+    </table>
+  </div>
+)}
+
+  {prospects.filter((prospect) => needsFollowUp(prospect)).length === 0 ? (
+    <div className="message">
+      Aucune relance à faire aujourd’hui.
+    </div>
+  ) : (
+    <div className="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Entreprise</th>
+            <th>E-mail</th>
+            <th>Relance prévue</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {prospects
+            .filter((prospect) => needsFollowUp(prospect))
+            .map((prospect) => (
+              <tr key={prospect.id}>
+                <td>{prospect.company_name}</td>
+
+                <td>
+                  {prospect.public_email ?? "—"}
+                </td>
+
+                <td>
+                  {formatTrackingDate(
+                    prospect.follow_up_at
+                  )}
+                </td>
+
+                <td>
+                  <button
+                    type="button"
+                    className="edit-button"
+                    onClick={() => {
+                      void openFollowUpComposer(
+                        prospect
+                      );
+                    }}
+                  >
+                    Préparer une relance
+                  </button>
+                </td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</section>
 
         <section className="panel">
           <div className="panel-header">
