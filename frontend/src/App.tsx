@@ -114,6 +114,7 @@ function App() {
   const [filterIndustry, setFilterIndustry] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterEmail, setFilterEmail] = useState<"all" | "with">("all");
+  const [filterFollowUp, setFilterFollowUp] = useState<"all" | "follow-up">("all");
   const [minimumScore, setMinimumScore] = useState(0);
   const [sortBy, setSortBy] = useState<"score" | "priority" | "name">("score");
   const [enrichmentLimit, setEnrichmentLimit] = useState(10);
@@ -320,6 +321,9 @@ function App() {
         !filterStatus || prospect.status === filterStatus;
       const matchesEmail =
         filterEmail === "all" || Boolean(prospect.public_email?.trim());
+        const matchesFollowUp =
+  filterFollowUp === "all" ||
+  needsFollowUp(prospect);
       const matchesScore = prospect.score >= minimumScore;
 
       return (
@@ -328,6 +332,7 @@ function App() {
         matchesIndustry &&
         matchesStatus &&
         matchesEmail &&
+        matchesFollowUp &&
         matchesScore
       );
     });
@@ -341,6 +346,7 @@ function App() {
     prospects,
     search,
     filterCountry,
+    filterFollowUp,
     filterIndustry,
     filterStatus,
     filterEmail,
@@ -1962,6 +1968,26 @@ function App() {
                 <option value="Client">Client</option>
               </select>
             </label>
+            <label>
+  Relance
+  <select
+    value={filterFollowUp}
+    onChange={(event) =>
+      setFilterFollowUp(
+        event.target.value as
+          | "all"
+          | "follow-up"
+      )
+    }
+  >
+    <option value="all">
+      Toutes
+    </option>
+    <option value="follow-up">
+      À relancer
+    </option>
+  </select>
+</label>
 
             <label>
               Email
