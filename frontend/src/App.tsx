@@ -1923,6 +1923,77 @@ drafts: outreachMessages.filter(
   <div className="panel-header">
   <div>
     <h3>Brouillons prêts à envoyer</h3>
+    <div className="panel-header">
+  <div>
+    <h3>Prospects prioritaires à contacter</h3>
+    <p>
+      Meilleurs prospects encore à contacter.
+    </p>
+  </div>
+</div>
+
+{prospects.filter(
+  (prospect) =>
+    prospect.status === "À contacter"
+).length === 0 ? (
+  <div className="message">
+    Aucun prospect à contacter.
+  </div>
+) : (
+  <div className="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Entreprise</th>
+          <th>Score</th>
+          <th>Priorité</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {prospects
+          .filter(
+            (prospect) =>
+              prospect.status === "À contacter"
+          )
+          .sort(
+            (a, b) => b.score - a.score
+          )
+          .slice(0, 5)
+          .map((prospect) => (
+            <tr key={prospect.id}>
+              <td>
+                {prospect.company_name}
+              </td>
+
+              <td>
+                {prospect.score}/100
+              </td>
+
+              <td>
+                {prospect.priority}
+              </td>
+
+              <td>
+                <button
+                  type="button"
+                  className="edit-button"
+                  onClick={() => {
+                    void openMessageComposer(
+                      prospect
+                    );
+                  }}
+                >
+                  Préparer un message
+                </button>
+              </td>
+            </tr>
+          ))}
+      </tbody>
+    </table>
+  </div>
+)}
     <p>Messages enregistrés mais pas encore envoyés.</p>
   </div>
 </div>
