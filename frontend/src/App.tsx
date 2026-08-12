@@ -16,6 +16,7 @@ import {
   deleteProspect,
   enrichProspectsBatch,
   generateOutreachDraft,
+  generateFollowUpDraft,
   getProspects,
   importProspectsCsv,
   markProspectReplied,
@@ -656,6 +657,40 @@ function App() {
         err instanceof Error
           ? err.message
           : "Impossible de générer le brouillon."
+      );
+    } finally {
+      setGeneratingMessageDraft(false);
+    }
+  }
+
+  async function openFollowUpComposer(
+    prospect: Prospect
+  ) {
+    setMessageProspect(prospect);
+    setMessageSubject("");
+    setMessageBody("");
+    setMessageError(null);
+    setSavedMessage(null);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+
+    try {
+      setGeneratingMessageDraft(true);
+
+      const draft = await generateFollowUpDraft(
+        prospect.id
+      );
+
+      setMessageSubject(draft.subject);
+      setMessageBody(draft.body);
+    } catch (err) {
+      setMessageError(
+        err instanceof Error
+          ? err.message
+          : "Impossible de générer la relance."
       );
     } finally {
       setGeneratingMessageDraft(false);
@@ -1471,7 +1506,11 @@ function App() {
           <section className="panel prospect-form-panel">
             <div className="panel-header">
               <div>
-                <h3>Préparer un message</h3>
+                <h3>
+                  {messageSubject.startsWith("Petit suivi -")
+                    ? "Préparer une relance"
+                    : "Préparer un message"}
+                </h3>
                 <p>
                   Brouillon pour {messageProspect.company_name}
                   {messageProspect.public_email
@@ -2179,20 +2218,33 @@ function App() {
                                 {formatTrackingDate(prospect.follow_up_at)}
                               </span>
                               {needsFollowUp(prospect) && (
-  <span className="status">
-    À relancer
-  </span>
-)}
-{!prospect.replied_at && (
-  <button
-    type="button"
-    onClick={() => {
-      void handleMarkReplied(prospect);
-    }}
-  >
-    Réponse reçue
-  </button>
-)}
+                                <>
+                                  <span className="status">
+                                    À relancer
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    className="edit-button"
+                                    onClick={() => {
+                                      void openFollowUpComposer(prospect);
+                                    }}
+                                  >
+                                    Préparer une relance
+                                  </button>
+                                </>
+                              )}
+
+                              {!prospect.replied_at && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    void handleMarkReplied(prospect);
+                                  }}
+                                >
+                                  Réponse reçue
+                                </button>
+                              )}
                             </div>
                           </td>
 

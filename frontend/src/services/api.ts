@@ -427,3 +427,23 @@ export async function markProspectReplied(
     )
   ).json();
 }
+export async function generateFollowUpDraft(
+  prospectId: number
+): Promise<{
+  subject: string;
+  body: string;
+}> {
+  const response = await fetch(
+    `${API_URL}/outreach-messages/generate-follow-up/${prospectId}`,
+    {
+      method: "POST",
+    }
+  );
+
+  return (
+    await ensureOk(
+      response,
+      "Erreur génération de la relance"
+    )
+  ).json();
+}
