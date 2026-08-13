@@ -7,6 +7,11 @@ import {
 } from "react";
 
 import {
+  createCampaign,
+  getCampaigns,
+  getCampaignProspects,
+  addProspectToCampaign,
+  removeProspectFromCampaign,
   createOutreachMessage,
   getOutreachMessages,
   updateOutreachMessage,
@@ -25,6 +30,7 @@ import {
   updateProspect,
   type BatchEnrichmentResult,
   type ScoreRecalculationResult,
+  type Campaign,
   type CollectorResult,
   type ImportResult,
   type OutreachMessage,
@@ -167,6 +173,21 @@ function App() {
   const [savingMessage, setSavingMessage] = useState(false);
   const [generatingMessageDraft, setGeneratingMessageDraft] =
     useState(false);
+  const [campaigns, setCampaigns] =
+  useState<Campaign[]>([]);
+
+  const [campaignName, setCampaignName] =
+  useState("");
+  const [selectedCampaignId, setSelectedCampaignId] =
+    useState<number | null>(null);
+  const [campaignProspects, setCampaignProspects] =
+    useState<Prospect[]>([]);
+  const [campaignProspectId, setCampaignProspectId] =
+    useState("");
+  const [loadingCampaignProspects, setLoadingCampaignProspects] =
+    useState(false);
+  const [campaignProspectsError, setCampaignProspectsError] =
+    useState<string | null>(null);
   const [messageError, setMessageError] =
     useState<string | null>(null);
   const [savedMessage, setSavedMessage] =
@@ -186,43 +207,204 @@ function App() {
   const [messageToSend, setMessageToSend] = useState<OutreachMessage | null>(null);
 
   useEffect(() => {
-  if (activePage !== "messages") {
-    return;
-  }
+    let cancelled = false;
 
-  let cancelled = false;
+    getCampaigns()
+      .then((data) => {
+        if (!cancelled) {
+          setCampaigns(data);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Impossible de charger les campagnes."
+          );
+        }
+      });
 
-  const loadMessages = async () => {
-    setLoadingMessages(true);
-    setMessagesError(null);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activePage !== "messages") {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadMessages = async () => {
+      setLoadingMessages(true);
+      setMessagesError(null);
+
+      try {
+        const data = await getOutreachMessages();
+
+        if (!cancelled) {
+          setOutreachMessages(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setMessagesError(
+            err instanceof Error
+              ? err.message
+              : "Impossible de charger les brouillons."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingMessages(false);
+        }
+      }
+    };
+
+    void loadMessages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePage]);
+
+  useEffect(() => {
+    if (selectedCampaignId === null) {
+     
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadCampaignProspects = async () => {
+      try {
+        setLoadingCampaignProspects(true);
+        setCampaignProspectsError(null);
+
+        const data = await getCampaignProspects(selectedCampaignId);
+
+        if (!cancelled) {
+          setCampaignProspects(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setCampaignProspectsError(
+            err instanceof Error
+              ? err.message
+              : "Impossible de charger les prospects de la campagne."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingCampaignProspects(false);
+        }
+      }
+    };
+
+    void loadCampaignProspects();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCampaignId]);
+
+  async function handleAddCampaignProspect() {
+    if (selectedCampaignId === null) {
+      return;
+    }
+
+    const prospectId = Number(campaignProspectId);
+
+    if (!Number.isInteger(prospectId) || prospectId <= 0) {
+      setCampaignProspectsError("Choisis un prospect à ajouter.");
+      return;
+    }
 
     try {
-      const data = await getOutreachMessages();
+      setCampaignProspectsError(null);
 
-      if (!cancelled) {
-        setOutreachMessages(data);
-      }
+      await addProspectToCampaign(
+        selectedCampaignId,
+        prospectId
+      );
+
+      const refreshed = await getCampaignProspects(
+        selectedCampaignId
+      );
+
+      setCampaignProspects(refreshed);
+      setCampaignProspectId("");
     } catch (err) {
-      if (!cancelled) {
-        setMessagesError(
-          err instanceof Error
-            ? err.message
-            : "Impossible de charger les brouillons."
-        );
-      }
-    } finally {
-      if (!cancelled) {
-        setLoadingMessages(false);
-      }
+      setCampaignProspectsError(
+        err instanceof Error
+          ? err.message
+          : "Impossible d'ajouter le prospect à la campagne."
+      );
     }
-  };
+  }
 
-  void loadMessages();
+  async function handleRemoveCampaignProspect(
+    prospectId: number
+  ) {
+    if (selectedCampaignId === null) {
+      return;
+    }
 
-  return () => {
-    cancelled = true;
-  };
-}, [activePage]);
+    try {
+      setCampaignProspectsError(null);
+
+      await removeProspectFromCampaign(
+        selectedCampaignId,
+        prospectId
+      );
+
+      setCampaignProspects((current) =>
+        current.filter(
+          (prospect) => prospect.id !== prospectId
+        )
+      );
+    } catch (err) {
+      setCampaignProspectsError(
+        err instanceof Error
+          ? err.message
+          : "Impossible de retirer le prospect de la campagne."
+      );
+    }
+  }
+
+  async function handleCreateCampaign(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    const name = campaignName.trim();
+
+    if (!name) {
+      return;
+    }
+
+    try {
+      setError(null);
+
+      const created = await createCampaign({
+        name,
+      });
+
+      setCampaigns((current) => [
+        created,
+        ...current,
+      ]);
+
+      setCampaignName("");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Impossible de créer la campagne."
+      );
+    }
+  }
 
 
   useEffect(() => {
@@ -931,7 +1113,229 @@ drafts: outreachMessages.filter(
 
       <main className="content">
 
-        {activePage === "messages" ? (
+        {activePage === "campaigns" ? (
+          <>
+            <header className="topbar">
+              <div>
+                <p className="eyebrow">CRM</p>
+                <h2>Campagnes</h2>
+                <p className="subtitle">
+                  Crée et organise tes campagnes de prospection.
+                </p>
+              </div>
+            </header>
+
+            <section className="panel prospect-form-panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Nouvelle campagne</h3>
+                  <p>Donne un nom à ta campagne pour commencer.</p>
+                </div>
+              </div>
+
+              <form
+                className="prospect-form"
+                onSubmit={handleCreateCampaign}
+              >
+                <label>
+                  Nom de la campagne
+                  <input
+                    value={campaignName}
+                    onChange={(event) =>
+                      setCampaignName(event.target.value)
+                    }
+                    placeholder="Ex. Studios jeux vidéo France"
+                  />
+                </label>
+
+                <div className="form-actions">
+                  <button
+                    type="submit"
+                    className="primary-button"
+                    disabled={!campaignName.trim()}
+                  >
+                    Créer la campagne
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Campagnes</h3>
+                  <p>
+                    {campaigns.length} campagne
+                    {campaigns.length !== 1 ? "s" : ""}
+                  </p>
+                </div>
+              </div>
+
+              {error && (
+                <div className="message error">{error}</div>
+              )}
+
+              {campaigns.length === 0 ? (
+                <div className="message">
+                  Aucune campagne enregistrée.
+                </div>
+              ) : (
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Nom</th>
+                        <th>Statut</th>
+                        <th>Créée le</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {campaigns.map((campaign) => (
+                        <tr key={campaign.id}>
+                          <td>{campaign.name}</td>
+                          <td>
+                            <span className="status">
+                              {campaign.status}
+                            </span>
+                          </td>
+                          <td>
+                            {new Date(
+                              campaign.created_at
+                            ).toLocaleDateString("fr-FR")}
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              onClick={() =>
+                                setSelectedCampaignId(campaign.id)
+                              }
+                            >
+                              {selectedCampaignId === campaign.id
+                                ? "Sélectionnée"
+                                : "Gérer"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            {selectedCampaignId !== null && (
+              <section className="panel prospect-form-panel">
+                <div className="panel-header">
+                  <div>
+                    <h3>
+                      Prospects ·{" "}
+                      {campaigns.find(
+                        (campaign) =>
+                          campaign.id === selectedCampaignId
+                      )?.name ?? `Campagne #${selectedCampaignId}`}
+                    </h3>
+                    <p>
+                      Ajoute ou retire des prospects de cette campagne.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="prospect-form">
+                  <label>
+                    Prospect à ajouter
+                    <select
+                      value={campaignProspectId}
+                      onChange={(event) =>
+                        setCampaignProspectId(event.target.value)
+                      }
+                    >
+                      <option value="">Choisir un prospect</option>
+                      {prospects
+                        .filter(
+                          (prospect) =>
+                            !campaignProspects.some(
+                              (item) => item.id === prospect.id
+                            )
+                        )
+                        .map((prospect) => (
+                          <option
+                            key={prospect.id}
+                            value={prospect.id}
+                          >
+                            {prospect.company_name}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="primary-button"
+                      disabled={!campaignProspectId}
+                      onClick={handleAddCampaignProspect}
+                    >
+                      Ajouter à la campagne
+                    </button>
+                  </div>
+                </div>
+
+                {campaignProspectsError && (
+                  <div className="message error">
+                    {campaignProspectsError}
+                  </div>
+                )}
+
+                {loadingCampaignProspects ? (
+                  <div className="message">
+                    Chargement des prospects...
+                  </div>
+                ) : campaignProspects.length === 0 ? (
+                  <div className="message">
+                    Aucun prospect dans cette campagne.
+                  </div>
+                ) : (
+                  <div className="table-wrapper">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Entreprise</th>
+                          <th>Pays</th>
+                          <th>Score</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {campaignProspects.map((prospect) => (
+                          <tr key={prospect.id}>
+                            <td>{prospect.company_name}</td>
+                            <td>{prospect.country ?? "—"}</td>
+                            <td>{prospect.score}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="delete-button"
+                                onClick={() =>
+                                  handleRemoveCampaignProspect(
+                                    prospect.id
+                                  )
+                                }
+                              >
+                                Retirer
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            )}
+          </>
+        ) : activePage === "messages" ? (
           <>
             <header className="topbar">
               <div>

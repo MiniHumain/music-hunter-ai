@@ -91,7 +91,17 @@ export interface OutreachMessage {
   created_at: string;
   updated_at: string;
 }
+export type Campaign = {
+  id: number;
+  name: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
 
+export type CampaignCreate = {
+  name: string;
+};
 export interface GeneratedOutreachDraft {
   subject: string;
   body: string;
@@ -446,4 +456,97 @@ export async function generateFollowUpDraft(
       "Erreur génération de la relance"
     )
   ).json();
+}
+export async function getCampaigns(): Promise<Campaign[]> {
+  const response = await fetch(
+    `${API_URL}/campaigns`
+  );
+
+  return (
+    await ensureOk(
+      response,
+      "Erreur chargement des campagnes"
+    )
+  ).json();
+}
+
+
+export async function createCampaign(
+  data: CampaignCreate
+): Promise<Campaign> {
+  const response = await fetch(
+    `${API_URL}/campaigns`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    }
+  );
+
+  return (
+    await ensureOk(
+      response,
+      "Erreur création de la campagne"
+    )
+  ).json();
+}
+
+
+export async function getCampaignProspects(
+  campaignId: number
+): Promise<Prospect[]> {
+  const response = await fetch(
+    `${API_URL}/campaigns/${campaignId}/prospects`
+  );
+
+  return (
+    await ensureOk(
+      response,
+      "Erreur chargement des prospects de la campagne"
+    )
+  ).json();
+}
+
+
+export async function addProspectToCampaign(
+  campaignId: number,
+  prospectId: number
+): Promise<{
+  id: number;
+  campaign_id: number;
+  prospect_id: number;
+}> {
+  const response = await fetch(
+    `${API_URL}/campaigns/${campaignId}/prospects/${prospectId}`,
+    {
+      method: "POST",
+    }
+  );
+
+  return (
+    await ensureOk(
+      response,
+      "Erreur ajout du prospect à la campagne"
+    )
+  ).json();
+}
+
+
+export async function removeProspectFromCampaign(
+  campaignId: number,
+  prospectId: number
+): Promise<void> {
+  const response = await fetch(
+    `${API_URL}/campaigns/${campaignId}/prospects/${prospectId}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  await ensureOk(
+    response,
+    "Erreur suppression du prospect de la campagne"
+  );
 }
