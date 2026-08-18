@@ -111,3 +111,20 @@ def remove_prospect_from_campaign(
     return Response(
         status_code=status.HTTP_204_NO_CONTENT
     )
+@router.post(
+    "/{campaign_id}/generate-drafts",
+)
+def generate_campaign_drafts(
+    campaign_id: int,
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    try:
+        return campaign_service.generate_campaign_drafts(
+            db,
+            campaign_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc

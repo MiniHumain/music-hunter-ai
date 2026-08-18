@@ -6,7 +6,9 @@ from sqlalchemy.exc import IntegrityError
 from app.models.prospect import Prospect
 from app.models.campaign import Campaign
 from app.schemas.campaign import CampaignCreate
-
+from app.schemas.outreach_message import OutreachMessageCreate
+from app.services.outreach_generation import generate_outreach_draft
+from app.services.outreach_message_service import create_outreach_message
 
 def create_campaign(
     db: Session,
@@ -142,3 +144,38 @@ def remove_prospect_from_campaign(
 
     db.delete(campaign_prospect)
     db.commit()
+def generate_campaign_drafts(
+db: Session,
+campaign_id: int,
+) -> dict[str, int]:
+    prospects = get_campaign_prospects(
+        db,
+        campaign_id,
+    )
+
+    created = 0
+    skipped = 0
+
+    for prospect in prospects:
+        subject, body = generate_outreach_draft(
+            prospect
+        )
+
+        data = OutreachMessageCreate(
+            prospect_id=prospect.id,
+            subject=subject,
+            body=body,
+        )
+
+        create_outreach_message(
+            db,
+            data,
+        )
+
+        created += 1
+
+    return {
+        "prospects": len(prospects),
+        "created": created,
+        "skipped": skipped,
+    }

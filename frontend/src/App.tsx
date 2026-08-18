@@ -20,6 +20,7 @@ import {
   createProspect,
   deleteProspect,
   enrichProspectsBatch,
+  generateCampaignDrafts,
   generateOutreachDraft,
   generateFollowUpDraft,
   getProspects,
@@ -132,6 +133,16 @@ function App() {
 
   const [recalculatingScores, setRecalculatingScores] =
     useState(false);
+
+  const [generatingCampaignDrafts, setGeneratingCampaignDrafts] =
+  useState(false);
+
+  const [campaignDraftResult, setCampaignDraftResult] =
+  useState<{
+    prospects: number;
+    created: number;
+    skipped: number;
+  } | null>(null);
 
   const [scoreRecalculationResult, setScoreRecalculationResult] =
     useState<ScoreRecalculationResult | null>(null);
@@ -314,12 +325,14 @@ function App() {
       return;
     }
 
+
     const prospectId = Number(campaignProspectId);
 
     if (!Number.isInteger(prospectId) || prospectId <= 0) {
       setCampaignProspectsError("Choisis un prospect à ajouter.");
       return;
     }
+    
 
     try {
       setCampaignProspectsError(null);
@@ -343,6 +356,31 @@ function App() {
       );
     }
   }
+      async function handleGenerateCampaignDrafts() {
+  if (selectedCampaignId === null) {
+    return;
+  }
+
+  try {
+    setGeneratingCampaignDrafts(true);
+    setCampaignDraftResult(null);
+    setCampaignProspectsError(null);
+
+    const result = await generateCampaignDrafts(
+      selectedCampaignId
+    );
+
+    setCampaignDraftResult(result);
+  } catch (err) {
+    setCampaignProspectsError(
+      err instanceof Error
+        ? err.message
+        : "Impossible de générer les brouillons."
+    );
+  } finally {
+    setGeneratingCampaignDrafts(false);
+  }
+}
 
   async function handleRemoveCampaignProspect(
     prospectId: number
@@ -1490,6 +1528,33 @@ drafts: outreachMessages.filter(
                         rows={12}
                       />
                     </label>
+                    <div className="form-actions">
+  <button
+    type="button"
+    className="primary-button"
+    onClick={handleGenerateCampaignDrafts}
+    disabled={
+      generatingCampaignDrafts ||
+      campaignProspects.length === 0
+    }
+  >
+    {generatingCampaignDrafts
+      ? "Génération en cours..."
+      : "Générer les brouillons"}
+  </button>
+</div>
+
+{campaignDraftResult && (
+  <div className="import-result">
+    <strong>Génération terminée :</strong>{" "}
+    {campaignDraftResult.created} brouillon
+    {campaignDraftResult.created !== 1 ? "s" : ""} généré
+    {campaignDraftResult.created !== 1 ? "s" : ""}
+    {" · "}
+    {campaignDraftResult.skipped} ignoré
+    {campaignDraftResult.skipped !== 1 ? "s" : ""}
+  </div>
+)}
                     <div className="form-actions">
                       <button type="button" className="secondary-button" onClick={() => setEditingMessage(false)}>
                         Annuler

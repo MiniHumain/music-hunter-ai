@@ -508,7 +508,27 @@ export async function getCampaignProspects(
     )
   ).json();
 }
+export async function generateCampaignDrafts(
+  campaignId: number
+): Promise<{
+  prospects: number;
+  created: number;
+  skipped: number;
+}> {
+  const response = await fetch(
+    `${API_URL}/campaigns/${campaignId}/generate-drafts`,
+    {
+      method: "POST",
+    }
+  );
 
+  return (
+    await ensureOk(
+      response,
+      "Erreur génération des brouillons de campagne"
+    )
+  ).json();
+}
 
 export async function addProspectToCampaign(
   campaignId: number,
