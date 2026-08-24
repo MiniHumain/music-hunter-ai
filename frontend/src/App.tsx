@@ -242,9 +242,12 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (activePage !== "messages") {
-      return;
-    }
+  if (
+  activePage !== "messages" &&
+  activePage !== "campaigns"
+) {
+  return;
+}
 
     let cancelled = false;
 
@@ -1369,6 +1372,7 @@ drafts: outreachMessages.filter(
                           <th>Entreprise</th>
                           <th>Pays</th>
                           <th>Score</th>
+                          <th>Brouillon</th>
                           <th>Action</th>
                         </tr>
                       </thead>
@@ -1378,6 +1382,30 @@ drafts: outreachMessages.filter(
                             <td>{prospect.company_name}</td>
                             <td>{prospect.country ?? "—"}</td>
                             <td>{prospect.score}</td>
+                            
+<td>
+  {(() => {
+    const draft = outreachMessages.find(
+      (message) =>
+        message.prospect_id === prospect.id &&
+        message.status === "draft"
+    );
+
+    if (!draft) {
+      return "—";
+    }
+
+    return (
+      <button
+        type="button"
+        className="edit-button"
+        onClick={() => openSavedMessage(draft)}
+      >
+        {draft.subject}
+      </button>
+    );
+  })()}
+</td>
                             <td>
                               <button
                                 type="button"
