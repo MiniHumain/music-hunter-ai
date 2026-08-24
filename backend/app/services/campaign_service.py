@@ -2,7 +2,7 @@ from app.models.campaign_prospect import CampaignProspect
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-
+from app.models.outreach_message import OutreachMessage
 from app.models.prospect import Prospect
 from app.models.campaign import Campaign
 from app.schemas.campaign import CampaignCreate
@@ -157,6 +157,17 @@ campaign_id: int,
     skipped = 0
 
     for prospect in prospects:
+        existing_draft = db.scalar(
+            select(OutreachMessage).where(
+                OutreachMessage.prospect_id == prospect.id,
+                OutreachMessage.status == "draft",
+            )
+        )
+
+        if existing_draft is not None:
+            skipped += 1
+            continue
+
         subject, body = generate_outreach_draft(
             prospect
         )
@@ -178,4 +189,4 @@ campaign_id: int,
         "prospects": len(prospects),
         "created": created,
         "skipped": skipped,
-    }
+    }          
