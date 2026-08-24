@@ -1279,6 +1279,33 @@ drafts: outreachMessages.filter(
                     </p>
                   </div>
                 </div>
+                        <div className="form-actions">
+          <button
+            type="button"
+            className="primary-button"
+            onClick={handleGenerateCampaignDrafts}
+            disabled={
+              generatingCampaignDrafts ||
+              campaignProspects.length === 0
+            }
+          >
+            {generatingCampaignDrafts
+              ? "Génération en cours..."
+              : "Générer les brouillons"}
+          </button>
+        </div>
+
+        {campaignDraftResult && (
+          <div className="import-result">
+            <strong>Génération terminée :</strong>{" "}
+            {campaignDraftResult.created} brouillon
+            {campaignDraftResult.created !== 1 ? "s" : ""} généré
+            {campaignDraftResult.created !== 1 ? "s" : ""}
+            {" · "}
+            {campaignDraftResult.skipped} ignoré
+            {campaignDraftResult.skipped !== 1 ? "s" : ""}
+          </div>
+        )}
 
                 <div className="prospect-form">
                   <label>
