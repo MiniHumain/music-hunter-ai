@@ -947,6 +947,12 @@ drafts: outreachMessages.filter(
     setEditingMessage(false);
     setEditingMessageSubject(message.subject);
     setEditingMessageBody(message.body);
+    window.setTimeout(() => {
+  window.scrollTo({
+    top: document.body.scrollHeight,
+    behavior: "smooth",
+  });
+}, 0);
   }
 
   function startEditingMessage(message: OutreachMessage) {
@@ -954,6 +960,12 @@ drafts: outreachMessages.filter(
     setEditingMessage(true);
     setEditingMessageSubject(message.subject);
     setEditingMessageBody(message.body);
+    window.setTimeout(() => {
+  window.scrollTo({
+    top: document.body.scrollHeight,
+    behavior: "smooth",
+  });
+}, 0);
   }
 
   async function handleSavedMessageUpdate(event: FormEvent<HTMLFormElement>) {
