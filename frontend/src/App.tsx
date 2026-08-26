@@ -1396,13 +1396,23 @@ drafts: outreachMessages.filter(
     }
 
     return (
-      <button
-        type="button"
-        className="edit-button"
-        onClick={() => openSavedMessage(draft)}
-      >
-        {draft.subject}
-      </button>
+      <>
+        <button
+          type="button"
+          className="edit-button"
+          onClick={() => openSavedMessage(draft)}
+        >
+          {draft.subject}
+        </button>
+
+        <button
+          type="button"
+          className="primary-button"
+          onClick={() => requestSavedMessageSend(draft)}
+        >
+          Envoyer
+        </button>
+      </>
     );
   })()}
 </td>
@@ -1427,6 +1437,82 @@ drafts: outreachMessages.filter(
                 )}
               </section>
             )}
+
+            {messageToSend && (() => {
+              const sendProspect = prospects.find(
+                (p) => p.id === messageToSend.prospect_id
+              );
+
+              return (
+                <div
+                  className="send-confirmation-overlay"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="send-confirmation-title"
+                >
+                  <div className="send-confirmation-modal">
+                    <p className="eyebrow">CONFIRMATION D'ENVOI</p>
+                    <h3 id="send-confirmation-title">
+                      Vérifier avant d'envoyer
+                    </h3>
+
+                    <div className="send-confirmation-details">
+                      <p>
+                        <strong>Entreprise :</strong>{" "}
+                        {sendProspect?.company_name ??
+                          `Prospect #${messageToSend.prospect_id}`}
+                      </p>
+                      <p>
+                        <strong>Destinataire :</strong>{" "}
+                        {sendProspect?.public_email ?? "—"}
+                      </p>
+                      <p>
+                        <strong>Sujet :</strong>{" "}
+                        {messageToSend.subject}
+                      </p>
+                    </div>
+
+                    <label className="send-confirmation-preview">
+                      Message
+                      <textarea
+                        value={messageToSend.body}
+                        rows={12}
+                        readOnly
+                      />
+                    </label>
+
+                    <p className="send-confirmation-warning">
+                      Attention : confirmer déclenchera l'envoi réel de cet e-mail.
+                    </p>
+
+                    <div className="form-actions">
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={
+                          sendingMessageId === messageToSend.id
+                        }
+                        onClick={() => setMessageToSend(null)}
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        type="button"
+                        className="primary-button"
+                        disabled={
+                          sendingMessageId === messageToSend.id
+                        }
+                        onClick={confirmSavedMessageSend}
+                      >
+                        {sendingMessageId === messageToSend.id
+                          ? "Envoi..."
+                          : "Confirmer l'envoi"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </>
         ) : activePage === "messages" ? (
           <>

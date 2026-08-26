@@ -455,3 +455,53 @@ table {
   width: 100%;
   white-space: nowrap;
 }
+/* Confirmation avant envoi */
+
+.send-confirmation-preview {
+  display: block;
+  max-width: 760px;
+  margin: 24px auto;
+  font-weight: 600;
+}
+
+.send-confirmation-preview textarea {
+  display: block;
+  width: 100%;
+  min-height: 220px;
+  margin-top: 10px;
+  padding: 16px;
+  box-sizing: border-box;
+  resize: vertical;
+
+  font: inherit;
+  font-weight: 400;
+  line-height: 1.5;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.send-confirmation-details {
+  max-width: 760px;
+  margin: 20px auto;
+}
+
+.send-confirmation-warning {
+  margin: 20px auto;
+  text-align: center;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+.send-confirmation-preview textarea {
+  color: #111827;
+}
+.send-confirmation-preview textarea {
+  color: #111827;
+  background: #ffffff;
+}
