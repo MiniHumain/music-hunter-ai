@@ -3074,10 +3074,12 @@ drafts: outreachMessages.filter(
                                 <strong>Réponse :</strong>{" "}
                                 {formatTrackingDate(prospect.replied_at)}
                               </span>
-                              <span>
-                                <strong>Relance :</strong>{" "}
-                                {formatTrackingDate(prospect.follow_up_at)}
-                              </span>
+                              {!prospect.replied_at && (
+  <span>
+    <strong>Relance :</strong>{" "}
+    {formatTrackingDate(prospect.follow_up_at)}
+  </span>
+)}
                               {needsFollowUp(prospect) && (
                                 <>
                                   <span className="status">
