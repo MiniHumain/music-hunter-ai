@@ -2639,18 +2639,33 @@ setOutreachMessages((current) => [created, ...current]);
       </thead>
 
       <tbody>
-        {outreachMessages
-         .filter(
-  (message, index, messages) =>
-    message.status === "draft" &&
-    index ===
-      messages.findIndex(
+{outreachMessages
+  .filter((message) => message.status === "draft")
+  .filter((message) => {
+    const prospect = prospects.find(
+      (prospect) => prospect.id === message.prospect_id
+    );
+
+    return (
+      prospect &&
+      prospect.status !== "Répondu" &&
+      !prospect.replied_at
+    );
+  })
+  .sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() -
+      new Date(a.created_at).getTime()
+  )
+  .filter(
+    (message, index, drafts) =>
+      index ===
+      drafts.findIndex(
         (otherMessage) =>
-          otherMessage.status === "draft" &&
           otherMessage.prospect_id === message.prospect_id
       )
-)
-.map((message) => {
+  )
+  .map((message) => {
             const prospect = prospects.find(
               (item) =>
                 item.id === message.prospect_id
