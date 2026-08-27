@@ -242,7 +242,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-  if (
+if (
+  activePage !== "dashboard" &&
   activePage !== "messages" &&
   activePage !== "campaigns"
 ) {
@@ -1091,7 +1092,7 @@ drafts: outreachMessages.filter(
         subject,
         body,
       });
-
+setOutreachMessages((current) => [created, ...current]);
       setSavedMessage(created);
     } catch (err) {
       setMessageError(
@@ -2639,10 +2640,17 @@ drafts: outreachMessages.filter(
 
       <tbody>
         {outreachMessages
-          .filter(
-            (message) => message.status === "draft"
-          )
-          .map((message) => {
+         .filter(
+  (message, index, messages) =>
+    message.status === "draft" &&
+    index ===
+      messages.findIndex(
+        (otherMessage) =>
+          otherMessage.status === "draft" &&
+          otherMessage.prospect_id === message.prospect_id
+      )
+)
+.map((message) => {
             const prospect = prospects.find(
               (item) =>
                 item.id === message.prospect_id
