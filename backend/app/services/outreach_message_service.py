@@ -104,6 +104,11 @@ def delete_outreach_message(
     db: Session,
     message: OutreachMessage,
 ) -> None:
+    if message.status != "draft":
+        raise ValueError(
+            "Seuls les brouillons peuvent être supprimés"
+        )
+
     db.delete(message)
     db.commit()
 

@@ -210,10 +210,16 @@ def delete_message(
             detail="Brouillon introuvable",
         )
 
-    delete_outreach_message(
-        db,
-        message,
-    )
+    try:
+        delete_outreach_message(
+            db,
+            message,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
 
     return Response(
         status_code=status.HTTP_204_NO_CONTENT
