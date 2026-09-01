@@ -25,10 +25,25 @@ def create_outreach_message(
             "Prospect introuvable"
         )
 
+    subject = data.subject.strip()
+    body = data.body.strip()
+
+    existing_draft = db.scalar(
+        select(OutreachMessage).where(
+            OutreachMessage.prospect_id == data.prospect_id,
+            OutreachMessage.subject == subject,
+            OutreachMessage.body == body,
+            OutreachMessage.status == "draft",
+        )
+    )
+
+    if existing_draft is not None:
+        return existing_draft
+
     message = OutreachMessage(
         prospect_id=data.prospect_id,
-        subject=data.subject.strip(),
-        body=data.body.strip(),
+        subject=subject,
+        body=body,
         status="draft",
     )
 
